@@ -17,21 +17,28 @@ class GameScreen private constructor(
     private val difficulty: DifficultyLevel = DifficultyLevel.NORMAL
 ) : Screen {
     internal lateinit var player: Player
-    private val enemies = mutableListOf<Enemy>()  // Keep Enemy type for compatibility
-    private val powerUps = mutableListOf<PowerUp>()
-    private var spawnTimer = 0f
-    private var spawnInterval = 2f  // Initial spawn interval
-    private var powerUpTimer = 0f
-    private var powerUpInterval = 10f  // Spawn power-up every 10 seconds
+    internal val enemies = mutableListOf<Enemy>()  // Keep Enemy type for compatibility
+    internal val powerUps = mutableListOf<PowerUp>()
+    internal var spawnTimer = 0f
+    internal var spawnInterval = 2f  // Initial spawn interval
+    internal var powerUpTimer = 0f
+    internal var powerUpInterval = 10f  // Spawn power-up every 10 seconds
 
     companion object {
+        const val WORLD_WIDTH = 2400f  // 3x original width
+        const val WORLD_HEIGHT = 1800f // 3x original height
+        const val VIEWPORT_WIDTH = 800f
+        const val VIEWPORT_HEIGHT = 600f
+        const val SPAWN_MARGIN = 50f   // Margin for enemy spawning outside viewport
+
         fun create(
             game: VampireSurvivorsGame,
             weaponType: WeaponType = WeaponType.SIMPLE,
             difficulty: DifficultyLevel = DifficultyLevel.NORMAL
         ): GameScreen {
             val camera = OrthographicCamera().apply {
-                setToOrtho(false, 800f, 600f)
+                setToOrtho(false, VIEWPORT_WIDTH, VIEWPORT_HEIGHT)
+                position.set(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, 0f)
             }
             return createWithCamera(game, weaponType, difficulty, camera)
         }
@@ -49,7 +56,10 @@ class GameScreen private constructor(
                 ui = GameUI(game.batch),
                 difficulty = difficulty
             )
-            screen.player = Player(weaponType)
+            screen.player = Player(weaponType).apply {
+                // Start player at the center of the world
+                position.set(WORLD_WIDTH / 2, WORLD_HEIGHT / 2)
+            }
             return screen
         }
 
@@ -62,7 +72,9 @@ class GameScreen private constructor(
             difficulty: DifficultyLevel = DifficultyLevel.NORMAL
         ): GameScreen {
             val screen = GameScreen(game, camera, shapeRenderer, ui, difficulty)
-            screen.player = Player(WeaponType.SIMPLE)
+            screen.player = Player(WeaponType.SIMPLE).apply {
+                position.set(WORLD_WIDTH / 2, WORLD_HEIGHT / 2)
+            }
             return screen
         }
     }
@@ -79,26 +91,36 @@ class GameScreen private constructor(
         powerUpInterval = 10f
     }
 
-    private var gameTime = 0f
-    private var difficultyLevel = 1
+    internal var gameTime = 0f
+    internal var difficultyLevel = 1
 
-    private fun updateDifficulty(delta: Float) {
+    internal fun updateDifficulty(delta: Float) {
         gameTime += delta
         difficultyLevel = (gameTime / 60f).toInt() + 1  // Increase difficulty every minute
 
         // Adjust spawn interval based on difficulty and difficulty level multiplier
-        val baseInterval = 2f / difficultyLevel
-        spawnInterval = (baseInterval / difficulty.enemySpawnRateMultiplier).coerceAtLeast(0.5f)
+        val baseInterval = 1.5f / difficultyLevel  // Reduced base interval
+        spawnInterval = (baseInterval / difficulty.enemySpawnRateMultiplier).coerceAtLeast(0.3f)  // Lower minimum interval
     }
 
     private fun spawnEnemy() {
-        // Spawn enemies from outside the screen
+        // Get camera viewport bounds
+        val viewportLeft = (camera.position.x - VIEWPORT_WIDTH / 2).coerceIn(0f, WORLD_WIDTH - VIEWPORT_WIDTH)
+        val viewportRight = viewportLeft + VIEWPORT_WIDTH
+        val viewportBottom = (camera.position.y - VIEWPORT_HEIGHT / 2).coerceIn(0f, WORLD_HEIGHT - VIEWPORT_HEIGHT)
+        val viewportTop = viewportBottom + VIEWPORT_HEIGHT
+
+        // Spawn enemies just outside the visible area
         val side = (0..3).random() // 0: top, 1: right, 2: bottom, 3: left
         val (x, y) = when (side) {
-            0 -> Pair((0..800).random().toFloat(), -30f) // top
-            1 -> Pair(830f, (0..600).random().toFloat()) // right
-            2 -> Pair((0..800).random().toFloat(), 630f) // bottom
-            else -> Pair(-30f, (0..600).random().toFloat()) // left
+            0 -> Pair(((viewportLeft - SPAWN_MARGIN).toInt()..(viewportRight + SPAWN_MARGIN).toInt()).random().toFloat(), 
+                     viewportTop + SPAWN_MARGIN) // top
+            1 -> Pair(viewportRight + SPAWN_MARGIN,
+                     ((viewportBottom - SPAWN_MARGIN).toInt()..(viewportTop + SPAWN_MARGIN).toInt()).random().toFloat()) // right
+            2 -> Pair(((viewportLeft - SPAWN_MARGIN).toInt()..(viewportRight + SPAWN_MARGIN).toInt()).random().toFloat(),
+                     viewportBottom - SPAWN_MARGIN) // bottom
+            else -> Pair(viewportLeft - SPAWN_MARGIN,
+                     ((viewportBottom - SPAWN_MARGIN).toInt()..(viewportTop + SPAWN_MARGIN).toInt()).random().toFloat()) // left
         }
 
         // Create enemy with difficulty-adjusted stats
@@ -110,22 +132,33 @@ class GameScreen private constructor(
     }
 
     private fun spawnPowerUp() {
-        // Spawn power-up at random position within screen bounds
-        val x = (50..750).random().toFloat()
-        val y = (50..550).random().toFloat()
+        // Get camera viewport bounds with margin
+        val margin = 50f
+        val viewportLeft = (camera.position.x - VIEWPORT_WIDTH / 2).coerceIn(0f, WORLD_WIDTH - VIEWPORT_WIDTH)
+        val viewportRight = viewportLeft + VIEWPORT_WIDTH
+        val viewportBottom = (camera.position.y - VIEWPORT_HEIGHT / 2).coerceIn(0f, WORLD_HEIGHT - VIEWPORT_HEIGHT)
+        val viewportTop = viewportBottom + VIEWPORT_HEIGHT
+
+        // Spawn power-up within visible area (with margin)
+        val x = ((viewportLeft + margin).toInt()..(viewportRight - margin).toInt()).random().toFloat()
+        val y = ((viewportBottom + margin).toInt()..(viewportTop - margin).toInt()).random().toFloat()
 
         // Random power-up type
         val type = PowerUpType.values().random()
         powerUps.add(PowerUp(Vector2(x, y), type))
     }
 
-    private fun updateEnemies(delta: Float) {
+    internal fun updateEnemies(delta: Float) {
         // Update difficulty and spawn timers
         updateDifficulty(delta)
         spawnTimer += delta
         if (spawnTimer >= spawnInterval) {
             spawnTimer = 0f
-            spawnEnemy()
+            // Spawn multiple enemies based on difficulty level
+            val spawnCount = (2 + (difficultyLevel / 2)).coerceAtMost(8)  // Start with 2, add 1 per 2 levels, max 8
+            repeat(spawnCount) {
+                spawnEnemy()
+            }
         }
 
         // Update power-up spawn timer
@@ -188,6 +221,10 @@ class GameScreen private constructor(
             updateEnemies(delta)
             player.update(delta, enemies)
             player.weapon.checkCollisions(enemies)
+
+            // Update camera to follow player
+            camera.position.x = player.position.x.coerceIn(VIEWPORT_WIDTH / 2, WORLD_WIDTH - VIEWPORT_WIDTH / 2)
+            camera.position.y = player.position.y.coerceIn(VIEWPORT_HEIGHT / 2, WORLD_HEIGHT - VIEWPORT_HEIGHT / 2)
         }
 
         // Clear screen
@@ -198,6 +235,12 @@ class GameScreen private constructor(
         game.batch.projectionMatrix = camera.combined
         shapeRenderer.projectionMatrix = camera.combined
 
+        // Draw world boundary
+        shapeRenderer.begin(ShapeType.Line)
+        shapeRenderer.color = com.badlogic.gdx.graphics.Color(0.4f, 0.4f, 0.4f, 1f) // Slightly brighter for better visibility
+        shapeRenderer.rect(0f, 0f, WORLD_WIDTH, WORLD_HEIGHT)
+        shapeRenderer.end()
+
         // Render game objects
         enemies.forEach { it.render(shapeRenderer) }  // Render enemies first
         powerUps.forEach { it.render(shapeRenderer) }  // Render power-ups
@@ -206,6 +249,53 @@ class GameScreen private constructor(
         // Reset projection matrix for UI rendering
         game.batch.projectionMatrix.setToOrtho2D(0f, 0f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
         shapeRenderer.projectionMatrix = game.batch.projectionMatrix
+
+        // Draw minimap in the corner
+        val minimapSize = 100f
+        val margin = 10f
+        val minimapX = Gdx.graphics.width - minimapSize - margin
+        val minimapY = margin
+        val minimapScale = minimapSize / WORLD_WIDTH
+
+        // Draw minimap
+        val minimapHeight = minimapSize * (WORLD_HEIGHT / WORLD_WIDTH)
+
+        shapeRenderer.begin(ShapeType.Filled)
+        // Draw minimap background
+        shapeRenderer.color = com.badlogic.gdx.graphics.Color(0.1f, 0.1f, 0.1f, 0.8f)
+        shapeRenderer.rect(minimapX, minimapY, minimapSize, minimapHeight)
+
+        // Draw enemy positions on minimap
+        shapeRenderer.color = com.badlogic.gdx.graphics.Color(0.8f, 0.2f, 0.2f, 0.6f)
+        enemies.forEach { enemy ->
+            val enemyMinimapX = minimapX + (enemy.position.x * minimapScale)
+            val enemyMinimapY = minimapY + (enemy.position.y * minimapScale)
+            shapeRenderer.circle(enemyMinimapX, enemyMinimapY, 1f)
+        }
+
+        // Draw player position on minimap
+        shapeRenderer.color = com.badlogic.gdx.graphics.Color.GREEN
+        val playerMinimapX = minimapX + (player.position.x * minimapScale)
+        val playerMinimapY = minimapY + (player.position.y * minimapScale)
+        shapeRenderer.circle(playerMinimapX, playerMinimapY, 2f)
+
+        // Draw viewport area on minimap
+        shapeRenderer.color = com.badlogic.gdx.graphics.Color(1f, 1f, 1f, 0.3f)
+        val viewportMinimapWidth = camera.viewportWidth * minimapScale
+        val viewportMinimapHeight = camera.viewportHeight * minimapScale
+        shapeRenderer.rect(
+            minimapX + (camera.position.x - camera.viewportWidth/2) * minimapScale,
+            minimapY + (camera.position.y - camera.viewportHeight/2) * minimapScale,
+            viewportMinimapWidth,
+            viewportMinimapHeight
+        )
+        shapeRenderer.end()
+
+        // Draw minimap border
+        shapeRenderer.begin(ShapeType.Line)
+        shapeRenderer.color = com.badlogic.gdx.graphics.Color(0.5f, 0.5f, 0.5f, 1f)
+        shapeRenderer.rect(minimapX, minimapY, minimapSize, minimapHeight)
+        shapeRenderer.end()
 
         // If selecting upgrade, render the darkened background
         if (player.experience.isSelectingUpgrade) {
@@ -219,11 +309,29 @@ class GameScreen private constructor(
         }
 
         // Render UI
-        ui.render(shapeRenderer, player)
+        ui.render(shapeRenderer, player, enemies, player.weapon.getProjectiles())
     }
 
     override fun resize(width: Int, height: Int) {
-        camera.setToOrtho(false, width.toFloat(), height.toFloat())
+        // Calculate viewport size maintaining aspect ratio
+        val aspectRatio = width.toFloat() / height.toFloat()
+        val viewportHeight = VIEWPORT_HEIGHT
+        val viewportWidth = viewportHeight * aspectRatio
+
+        // Update camera viewport
+        camera.viewportWidth = viewportWidth
+        camera.viewportHeight = viewportHeight
+
+        // Ensure camera stays within world bounds
+        camera.position.x = camera.position.x.coerceIn(
+            viewportWidth / 2,
+            WORLD_WIDTH - viewportWidth / 2
+        )
+        camera.position.y = camera.position.y.coerceIn(
+            viewportHeight / 2,
+            WORLD_HEIGHT - viewportHeight / 2
+        )
+        camera.update()
     }
 
     override fun show() {

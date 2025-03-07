@@ -88,4 +88,71 @@ class WeaponTest {
         weapon.switchWeapon() // MELEE -> SIMPLE
         assertEquals(WeaponType.SIMPLE, weapon.getCurrentWeaponType())
     }
+
+    @Test
+    fun `test weapon specific upgrades`() {
+        val player = mock(Player::class.java)
+        `when`(player.position).thenReturn(Vector2(100f, 100f))
+        `when`(player.size).thenReturn(32f)
+        `when`(player.direction).thenReturn(Vector2(1f, 0f))
+        `when`(player.isAutoTargeting).thenReturn(false)
+
+        // Test SPREAD weapon upgrades
+        val spreadWeapon = Weapon(player, WeaponType.SPREAD)
+        val spreadAngleField = spreadWeapon.javaClass.getDeclaredField("spreadAngle")
+        spreadAngleField.isAccessible = true
+        val initialSpreadAngle = spreadAngleField.get(spreadWeapon) as Double
+        spreadWeapon.increaseSpreadAngle(0.15f)
+        val updatedSpreadAngle = spreadAngleField.get(spreadWeapon) as Double
+        assertTrue(updatedSpreadAngle > initialSpreadAngle, "Spread angle should increase")
+
+        // Test BEAM weapon upgrades
+        val beamWeapon = Weapon(player, WeaponType.BEAM)
+        val beamWidthField = beamWeapon.javaClass.getDeclaredField("beamWidth")
+        beamWidthField.isAccessible = true
+        val initialBeamWidth = beamWidthField.get(beamWeapon) as Float
+        beamWeapon.increaseBeamWidth(2f)
+        val updatedBeamWidth = beamWidthField.get(beamWeapon) as Float
+        assertEquals(initialBeamWidth + 2f, updatedBeamWidth, "Beam width should increase by 2")
+
+        // Test BURST weapon upgrades
+        val burstWeapon = Weapon(player, WeaponType.BURST)
+        val burstRateField = burstWeapon.javaClass.getDeclaredField("burstRate")
+        burstRateField.isAccessible = true
+        val initialBurstRate = burstRateField.get(burstWeapon) as Float
+        burstWeapon.increaseBurstRate(0.2f)
+        val updatedBurstRate = burstRateField.get(burstWeapon) as Float
+        assertTrue(updatedBurstRate > initialBurstRate, "Burst rate should increase")
+
+        // Test MELEE weapon upgrades
+        val meleeWeapon = Weapon(player, WeaponType.MELEE)
+        val meleeRangeField = meleeWeapon.javaClass.getDeclaredField("meleeRange")
+        meleeRangeField.isAccessible = true
+        val initialMeleeRange = meleeRangeField.get(meleeWeapon) as Float
+        meleeWeapon.increaseMeleeRange(0.25f)
+        val updatedMeleeRange = meleeRangeField.get(meleeWeapon) as Float
+        assertTrue(updatedMeleeRange > initialMeleeRange, "Melee range should increase")
+    }
+
+    @Test
+    fun `test upgrade system weapon type filtering`() {
+        val player = mock(Player::class.java)
+        val upgradeSystem = UpgradeSystem()
+
+        // Test MELEE weapon upgrades
+        val meleeWeapon = Weapon(player, WeaponType.MELEE)
+        val meleeUpgrades = upgradeSystem.getRandomUpgrades(meleeWeapon)
+        assertTrue(meleeUpgrades.all { it.applicableWeaponTypes.contains(WeaponType.MELEE) },
+            "All upgrades should be applicable to MELEE weapon")
+        assertTrue(meleeUpgrades.any { it.type == UpgradeType.MELEE_RANGE || it.type == UpgradeType.MELEE_DURATION },
+            "Should include MELEE-specific upgrades")
+
+        // Test SPREAD weapon upgrades
+        val spreadWeapon = Weapon(player, WeaponType.SPREAD)
+        val spreadUpgrades = upgradeSystem.getRandomUpgrades(spreadWeapon)
+        assertTrue(spreadUpgrades.all { it.applicableWeaponTypes.contains(WeaponType.SPREAD) },
+            "All upgrades should be applicable to SPREAD weapon")
+        assertTrue(spreadUpgrades.any { it.type == UpgradeType.SPREAD_ANGLE },
+            "Should include SPREAD-specific upgrades")
+    }
 }

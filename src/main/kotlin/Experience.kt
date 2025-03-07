@@ -31,7 +31,7 @@ class Experience(private val player: Player) {
 
     private fun onLevelUp() {
         isSelectingUpgrade = true
-        availableUpgrades = upgradeSystem.getRandomUpgrades()
+        availableUpgrades = upgradeSystem.getRandomUpgrades(player.weapon)
     }
 
     fun selectUpgrade(index: Int) {

@@ -8,7 +8,7 @@ import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector2
 
 class Player(private val initialWeaponType: WeaponType = WeaponType.SIMPLE) {
-    val position = Vector2(400f, 300f)
+    val position = Vector2(GameScreen.WORLD_WIDTH / 2, GameScreen.WORLD_HEIGHT / 2)
     val direction = Vector2(1f, 0f)  // Default facing right
     val size = 32f
     private val baseSpeed = 200f
@@ -99,9 +99,9 @@ class Player(private val initialWeaponType: WeaponType = WeaponType.SIMPLE) {
             }
         }
 
-        // Keep player within screen bounds
-        position.x = position.x.coerceIn(0f, 800f - size)
-        position.y = position.y.coerceIn(0f, 600f - size)
+        // Keep player within world bounds
+        position.x = position.x.coerceIn(0f, GameScreen.WORLD_WIDTH - size)
+        position.y = position.y.coerceIn(0f, GameScreen.WORLD_HEIGHT - size)
 
         updateBounds()
     }

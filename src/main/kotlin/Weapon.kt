@@ -33,9 +33,9 @@ class Projectile(
         shapeRenderer.end()
     }
 
-    fun isOutOfBounds(screenWidth: Float, screenHeight: Float): Boolean {
-        return position.x < -size || position.x > screenWidth ||
-               position.y < -size || position.y > screenHeight
+    fun isOutOfBounds(): Boolean {
+        return position.x < -size || position.x > GameScreen.WORLD_WIDTH ||
+               position.y < -size || position.y > GameScreen.WORLD_HEIGHT
     }
 }
 
@@ -81,6 +81,9 @@ class Weapon(private val player: Player, initialType: WeaponType = WeaponType.SI
     private var currentType = initialType
 
     fun getCurrentWeaponType(): WeaponType = currentType
+
+    fun getProjectiles(): List<Projectile> = projectiles.toList()
+
     private var specialAttackCooldown = 0f
     private val maxSpecialCooldown = 5f
 
@@ -91,6 +94,13 @@ class Weapon(private val player: Player, initialType: WeaponType = WeaponType.SI
     private var projectilesPerAttack = 4
     private var chargeMultiplier = 2f    // Damage multiplier for charged attacks
     private var damageMultiplier = 1f    // Additional multiplier for power-ups
+
+    // Weapon-specific properties
+    private var spreadAngle = Math.PI / 4  // 45-degree spread for SPREAD weapon
+    private var beamWidth = 10f            // Width of BEAM weapon
+    private var burstRate = 0.8f           // Rate multiplier for BURST weapon
+    private var meleeRange = 1.5f          // Range multiplier for MELEE weapon
+    private var meleeDuration = 0.2f       // Duration of MELEE attacks
 
     fun applyDamageBoost(multiplier: Float) {
         damageMultiplier = multiplier
@@ -126,6 +136,27 @@ class Weapon(private val player: Player, initialType: WeaponType = WeaponType.SI
         projectileSpeed *= (1f + percentage)
     }
 
+    // Weapon-specific upgrade methods
+    fun increaseSpreadAngle(percentage: Float) {
+        spreadAngle *= (1f + percentage)
+    }
+
+    fun increaseBeamWidth(amount: Float) {
+        beamWidth += amount
+    }
+
+    fun increaseBurstRate(percentage: Float) {
+        burstRate *= (1f + percentage)
+    }
+
+    fun increaseMeleeRange(percentage: Float) {
+        meleeRange *= (1f + percentage)
+    }
+
+    fun increaseMeleeDuration(amount: Float) {
+        meleeDuration += amount
+    }
+
     fun update(delta: Float, enemies: List<Enemy>) {
         // Update timers
         attackTimer += delta
@@ -156,7 +187,7 @@ class Weapon(private val player: Player, initialType: WeaponType = WeaponType.SI
         meleeAttacks.removeAll { it.update(delta) }
 
         // Remove out-of-bounds projectiles
-        projectiles.removeAll { it.isOutOfBounds(800f, 600f) }
+        projectiles.removeAll { it.isOutOfBounds() }
     }
 
     fun startCharging() {
@@ -233,7 +264,6 @@ class Weapon(private val player: Player, initialType: WeaponType = WeaponType.SI
             }
             WeaponType.SPREAD -> {
                 // Create projectiles in a spread pattern
-                val spreadAngle = Math.PI / 4  // 45-degree spread
                 val angleStep = (spreadAngle * 2) / (projectilesPerAttack - 1)
                 val startAngle = baseAngle - spreadAngle
                 for (i in 0 until projectilesPerAttack) {
@@ -249,10 +279,9 @@ class Weapon(private val player: Player, initialType: WeaponType = WeaponType.SI
             WeaponType.BEAM -> {
                 // Create a focused beam of projectiles
                 val beamDamage = (damage.toFloat() * 1.5f).toInt()
-                val offsetDistance = 10f
                 for (i in 0..2) {  // Create 3 projectiles in a line
-                    val offsetX = cos(baseAngle) * (i * offsetDistance)
-                    val offsetY = sin(baseAngle) * (i * offsetDistance)
+                    val offsetX = cos(baseAngle) * (i * beamWidth)
+                    val offsetY = sin(baseAngle) * (i * beamWidth)
                     projectiles.add(Projectile(
                         position = Vector2(position).add(offsetX, offsetY),
                         direction = baseAngle,
@@ -263,10 +292,10 @@ class Weapon(private val player: Player, initialType: WeaponType = WeaponType.SI
             }
             WeaponType.BURST -> {
                 // Rapid-fire burst of projectiles
-                val spreadAngle = Math.PI / 6  // 30-degree spread
-                val burstDamage = (damage.toFloat() * 0.8f).toInt()
+                val burstDamage = (damage.toFloat() * burstRate).toInt()
+                val burstSpread = Math.PI / 6  // 30-degree spread
                 for (i in 0..2) {
-                    val angle = baseAngle - spreadAngle + (spreadAngle * i)
+                    val angle = baseAngle - burstSpread + (burstSpread * i)
                     projectiles.add(Projectile(
                         position = Vector2(position),
                         direction = angle.toFloat(),
@@ -276,12 +305,13 @@ class Weapon(private val player: Player, initialType: WeaponType = WeaponType.SI
                 }
             }
             WeaponType.MELEE -> {
-                // Create a melee attack with larger damage but shorter range
+                // Create a melee attack with configurable range and damage
                 val meleeDamage = (damage.toFloat() * 2f).toInt()
                 meleeAttacks.add(MeleeAttack(
                     position = position,
-                    size = player.size * 1.5f,
-                    damage = meleeDamage
+                    size = player.size * meleeRange,
+                    damage = meleeDamage,
+                    duration = meleeDuration
                 ))
             }
         }

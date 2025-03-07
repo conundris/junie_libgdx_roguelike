@@ -17,8 +17,17 @@ class GameUI(private val batch: SpriteBatch) {
     private val padding = 10f
     private val expBarY = padding
     private val healthBarY = Gdx.graphics.height - barHeight - padding
+    private val debugMetrics = DebugMetrics.getInstance()
 
-    fun render(shapeRenderer: ShapeRenderer, player: Player) {
+    fun render(shapeRenderer: ShapeRenderer, player: Player, enemies: List<Enemy>, projectiles: List<Projectile>) {
+        // Update debug metrics
+        debugMetrics.update(enemies, projectiles, player)
+
+        // Handle debug toggle (F3 or O key)
+        if (Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.F3) || 
+            Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.O)) {
+            debugMetrics.toggleVisibility()
+        }
         shapeRenderer.begin(ShapeType.Filled)
 
         // Render health bar
@@ -94,6 +103,16 @@ class GameUI(private val batch: SpriteBatch) {
         }
 
         font.getData().setScale(1f)  // Reset font scale
+
+        // Render debug metrics if visible
+        if (debugMetrics.isVisible()) {
+            val debugText = debugMetrics.getMetricsText()
+            val debugY = Gdx.graphics.height - 150f
+            debugText.split('\n').forEachIndexed { index, line ->
+                font.draw(batch, line, Gdx.graphics.width - 300f, debugY - (index * 20f))
+            }
+        }
+
         batch.end()
     }
 

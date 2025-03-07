@@ -94,8 +94,12 @@ class GameUITest {
             )
         }
 
+        // Create empty lists for enemies and projectiles
+        val enemies = emptyList<Enemy>()
+        val projectiles = emptyList<Projectile>()
+
         // Render the UI
-        gameUI.render(shapeRenderer, player)
+        gameUI.render(shapeRenderer, player, enemies, projectiles)
 
         // Verify batch management (multiple begin/end pairs are expected)
         verify(batch, atLeast(1)).begin()
@@ -144,11 +148,15 @@ class GameUITest {
             experience.isSelectingUpgrade = true
         }
 
+        // Create empty lists for enemies and projectiles
+        val enemies = emptyList<Enemy>()
+        val projectiles = emptyList<Projectile>()
+
         // Create an ordered verification
         val inOrder = inOrder(batch)
 
         // Render the UI
-        gameUI.render(shapeRenderer, player)
+        gameUI.render(shapeRenderer, player, enemies, projectiles)
 
         // Verify proper batch management
         inOrder.verify(batch).begin()
