@@ -14,18 +14,38 @@ class GameScreen(private val game: VampireSurvivorsGame) : Screen {
     private val shapeRenderer: ShapeRenderer = ShapeRenderer()
     private val ui: GameUI = GameUI(game.batch)
     private var player = Player()
-    private val enemies = mutableListOf<Enemy>()
+    private val enemies = mutableListOf<Enemy>()  // Keep Enemy type for compatibility
+    private val powerUps = mutableListOf<PowerUp>()
     private var spawnTimer = 0f
-    private val spawnInterval = 2f  // Spawn enemy every 2 seconds
+    private var spawnInterval = 2f  // Initial spawn interval
+    private var powerUpTimer = 0f
+    private var powerUpInterval = 10f  // Spawn power-up every 10 seconds
 
     private fun resetGame() {
         player = Player()
         enemies.clear()
+        powerUps.clear()
         spawnTimer = 0f
+        powerUpTimer = 0f
+        gameTime = 0f
+        difficultyLevel = 1
+        spawnInterval = 2f
+        powerUpInterval = 10f
     }
 
     init {
         camera.setToOrtho(false, 800f, 600f)
+    }
+
+    private var gameTime = 0f
+    private var difficultyLevel = 1
+
+    private fun updateDifficulty(delta: Float) {
+        gameTime += delta
+        difficultyLevel = (gameTime / 60f).toInt() + 1  // Increase difficulty every minute
+
+        // Adjust spawn interval based on difficulty
+        spawnInterval = (2f / difficultyLevel).coerceAtLeast(0.5f)
     }
 
     private fun spawnEnemy() {
@@ -37,15 +57,35 @@ class GameScreen(private val game: VampireSurvivorsGame) : Screen {
             2 -> Pair((0..800).random().toFloat(), 630f) // bottom
             else -> Pair(-30f, (0..600).random().toFloat()) // left
         }
+
+        // Create basic enemy for compatibility
         enemies.add(Enemy(x, y))
     }
 
+    private fun spawnPowerUp() {
+        // Spawn power-up at random position within screen bounds
+        val x = (50..750).random().toFloat()
+        val y = (50..550).random().toFloat()
+
+        // Random power-up type
+        val type = PowerUpType.values().random()
+        powerUps.add(PowerUp(Vector2(x, y), type))
+    }
+
     private fun updateEnemies(delta: Float) {
-        // Update spawn timer
+        // Update difficulty and spawn timers
+        updateDifficulty(delta)
         spawnTimer += delta
         if (spawnTimer >= spawnInterval) {
             spawnTimer = 0f
             spawnEnemy()
+        }
+
+        // Update power-up spawn timer
+        powerUpTimer += delta
+        if (powerUpTimer >= powerUpInterval) {
+            powerUpTimer = 0f
+            spawnPowerUp()
         }
 
         // Update existing enemies
@@ -60,6 +100,14 @@ class GameScreen(private val game: VampireSurvivorsGame) : Screen {
                 enemy.position.y += (enemy.position.y - player.position.y) * 0.5f
             }
         }
+
+        // Update and check power-ups
+        powerUps.removeAll { !it.update(delta) }  // Remove expired power-ups
+
+        // Check power-up collection
+        val collectedPowerUps = powerUps.filter { it.overlaps(player) }
+        collectedPowerUps.forEach { it.applyEffect(player) }
+        powerUps.removeAll { it.overlaps(player) }
 
         // Handle dead enemies and experience gain
         val deadEnemies = enemies.filter { !it.isAlive() }
@@ -89,8 +137,8 @@ class GameScreen(private val game: VampireSurvivorsGame) : Screen {
 
         // Update game state if player is alive and not selecting upgrade
         if (player.isAlive() && !player.experience.isSelectingUpgrade) {
-            player.update(delta)
             updateEnemies(delta)
+            player.update(delta, enemies)
             player.weapon.checkCollisions(enemies)
         }
 
@@ -104,6 +152,7 @@ class GameScreen(private val game: VampireSurvivorsGame) : Screen {
 
         // Render game objects
         enemies.forEach { it.render(shapeRenderer) }  // Render enemies first
+        powerUps.forEach { it.render(shapeRenderer) }  // Render power-ups
         player.render(shapeRenderer)  // Render player and weapon last
 
         // Reset projection matrix for UI rendering
