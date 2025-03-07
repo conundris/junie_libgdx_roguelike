@@ -9,11 +9,13 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.Input.Keys
 
-class GameScreen(private val game: VampireSurvivorsGame) : Screen {
-    private val camera: OrthographicCamera = OrthographicCamera()
-    private val shapeRenderer: ShapeRenderer = ShapeRenderer()
-    private val ui: GameUI = GameUI(game.batch)
-    private var player = Player()
+class GameScreen private constructor(
+    private val game: VampireSurvivorsGame,
+    private val camera: OrthographicCamera,
+    private val shapeRenderer: ShapeRenderer,
+    private val ui: GameUI
+) : Screen {
+    internal lateinit var player: Player
     private val enemies = mutableListOf<Enemy>()  // Keep Enemy type for compatibility
     private val powerUps = mutableListOf<PowerUp>()
     private var spawnTimer = 0f
@@ -21,8 +23,44 @@ class GameScreen(private val game: VampireSurvivorsGame) : Screen {
     private var powerUpTimer = 0f
     private var powerUpInterval = 10f  // Spawn power-up every 10 seconds
 
-    private fun resetGame() {
-        player = Player()
+    companion object {
+        fun create(game: VampireSurvivorsGame, weaponType: WeaponType = WeaponType.SIMPLE): GameScreen {
+            val camera = OrthographicCamera().apply {
+                setToOrtho(false, 800f, 600f)
+            }
+            return createWithCamera(game, weaponType, camera)
+        }
+
+        private fun createWithCamera(
+            game: VampireSurvivorsGame,
+            weaponType: WeaponType,
+            camera: OrthographicCamera
+        ): GameScreen {
+            val screen = GameScreen(
+                game = game,
+                camera = camera,
+                shapeRenderer = ShapeRenderer(),
+                ui = GameUI(game.batch)
+            )
+            screen.player = Player(weaponType)
+            return screen
+        }
+
+        // Factory method for testing
+        internal fun createForTesting(
+            game: VampireSurvivorsGame,
+            camera: OrthographicCamera,
+            shapeRenderer: ShapeRenderer,
+            ui: GameUI
+        ): GameScreen {
+            val screen = GameScreen(game, camera, shapeRenderer, ui)
+            screen.player = Player(WeaponType.SIMPLE)
+            return screen
+        }
+    }
+
+    internal fun resetGame() {
+        player = Player(player.weapon.getCurrentWeaponType())
         enemies.clear()
         powerUps.clear()
         spawnTimer = 0f
@@ -31,10 +69,6 @@ class GameScreen(private val game: VampireSurvivorsGame) : Screen {
         difficultyLevel = 1
         spawnInterval = 2f
         powerUpInterval = 10f
-    }
-
-    init {
-        camera.setToOrtho(false, 800f, 600f)
     }
 
     private var gameTime = 0f

@@ -7,7 +7,7 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType
 import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector2
 
-class Player {
+class Player(private val initialWeaponType: WeaponType = WeaponType.SIMPLE) {
     val position = Vector2(400f, 300f)
     val direction = Vector2(1f, 0f)  // Default facing right
     val size = 32f
@@ -38,7 +38,7 @@ class Player {
 
     init {
         updateBounds()
-        weapon = Weapon(this)
+        weapon = Weapon(this, initialWeaponType)
         experience = Experience(this)
     }
 

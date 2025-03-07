@@ -12,7 +12,7 @@ class VampireSurvivorsGame : Game() {
 
     override fun create() {
         batch = SpriteBatch()
-        setScreen(GameScreen(this))
+        setScreen(MainMenuScreen.create(this))
     }
 
     override fun render() {

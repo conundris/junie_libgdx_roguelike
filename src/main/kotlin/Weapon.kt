@@ -39,14 +39,38 @@ class Projectile(
     }
 }
 
-enum class WeaponType {
-    SPREAD, // Multiple projectiles in a spread pattern
-    BEAM,   // Continuous beam attack
-    BURST   // Rapid-fire burst of projectiles
+class MeleeAttack(
+    val position: Vector2,
+    val size: Float,
+    val damage: Int,
+    var duration: Float = 0.2f
+) {
+    val bounds = Rectangle(position.x - size/2, position.y - size/2, size, size)
+
+    fun update(delta: Float): Boolean {
+        duration -= delta
+        return duration <= 0
+    }
+
+    fun render(shapeRenderer: ShapeRenderer) {
+        shapeRenderer.begin(ShapeType.Filled)
+        shapeRenderer.setColor(0.8f, 0.8f, 0.8f, duration * 5f)  // White color with fade
+        shapeRenderer.circle(position.x, position.y, size)
+        shapeRenderer.end()
+    }
 }
 
-class Weapon(private val player: Player) {
+enum class WeaponType {
+    SIMPLE, // Single projectile straight ahead
+    SPREAD, // Multiple projectiles in a spread pattern
+    BEAM,   // Continuous beam attack
+    BURST,  // Rapid-fire burst of projectiles
+    MELEE   // Close-range melee attack
+}
+
+class Weapon(private val player: Player, initialType: WeaponType = WeaponType.SIMPLE) {
     private val projectiles = mutableListOf<Projectile>()
+    private val meleeAttacks = mutableListOf<MeleeAttack>()
     private var attackTimer = 0f
     private var chargeTimer = 0f
     private var isCharging = false
@@ -54,7 +78,9 @@ class Weapon(private val player: Player) {
     private var currentTarget: Enemy? = null
 
     // Current weapon configuration
-    private var currentType = WeaponType.SPREAD
+    private var currentType = initialType
+
+    fun getCurrentWeaponType(): WeaponType = currentType
     private var specialAttackCooldown = 0f
     private val maxSpecialCooldown = 5f
 
@@ -120,13 +146,14 @@ class Weapon(private val player: Player) {
         }
 
         // Regular attack
-        if (attackTimer >= attackInterval && !isCharging) {
+        if (attackTimer >= (if (currentType == WeaponType.MELEE) attackInterval * 0.5f else attackInterval) && !isCharging) {
             attackTimer = 0f
             attack(false)
         }
 
-        // Update projectiles
+        // Update projectiles and melee attacks
         projectiles.forEach { it.update(delta) }
+        meleeAttacks.removeAll { it.update(delta) }
 
         // Remove out-of-bounds projectiles
         projectiles.removeAll { it.isOutOfBounds(800f, 600f) }
@@ -154,9 +181,11 @@ class Weapon(private val player: Player) {
 
     fun switchWeapon() {
         currentType = when (currentType) {
+            WeaponType.SIMPLE -> WeaponType.SPREAD
             WeaponType.SPREAD -> WeaponType.BEAM
             WeaponType.BEAM -> WeaponType.BURST
-            WeaponType.BURST -> WeaponType.SPREAD
+            WeaponType.BURST -> WeaponType.MELEE
+            WeaponType.MELEE -> WeaponType.SIMPLE
         }
     }
 
@@ -193,6 +222,15 @@ class Weapon(private val player: Player) {
         val baseAngle = getTargetDirection(position)
 
         when (currentType) {
+            WeaponType.SIMPLE -> {
+                // Create a single projectile straight ahead
+                projectiles.add(Projectile(
+                    position = Vector2(position),
+                    direction = baseAngle,
+                    speed = projectileSpeed,
+                    damage = damage
+                ))
+            }
             WeaponType.SPREAD -> {
                 // Create projectiles in a spread pattern
                 val spreadAngle = Math.PI / 4  // 45-degree spread
@@ -237,12 +275,22 @@ class Weapon(private val player: Player) {
                     ))
                 }
             }
+            WeaponType.MELEE -> {
+                // Create a melee attack with larger damage but shorter range
+                val meleeDamage = (damage.toFloat() * 2f).toInt()
+                meleeAttacks.add(MeleeAttack(
+                    position = position,
+                    size = player.size * 1.5f,
+                    damage = meleeDamage
+                ))
+            }
         }
     }
 
     fun render(shapeRenderer: ShapeRenderer) {
-        // Render projectiles
+        // Render projectiles and melee attacks
         projectiles.forEach { it.render(shapeRenderer) }
+        meleeAttacks.forEach { it.render(shapeRenderer) }
 
         // Render auto-targeting range indicator
         if (player.isAutoTargeting) {
@@ -299,9 +347,11 @@ class Weapon(private val player: Player) {
         // Render current weapon type indicator
         shapeRenderer.begin(ShapeType.Filled)
         when (currentType) {
+            WeaponType.SIMPLE -> shapeRenderer.setColor(1f, 1f, 1f, 0.5f)    // White
             WeaponType.SPREAD -> shapeRenderer.setColor(0.2f, 1f, 0.2f, 0.5f)  // Green
             WeaponType.BEAM -> shapeRenderer.setColor(0.2f, 0.2f, 1f, 0.5f)    // Blue
             WeaponType.BURST -> shapeRenderer.setColor(1f, 0.2f, 0.2f, 0.5f)   // Red
+            WeaponType.MELEE -> shapeRenderer.setColor(0.8f, 0.8f, 0.8f, 0.5f) // Gray
         }
         shapeRenderer.circle(
             player.position.x + player.size / 2,
@@ -326,6 +376,7 @@ class Weapon(private val player: Player) {
     }
 
     fun checkCollisions(enemies: List<Enemy>) {
+        // Check projectile collisions
         val projectilesToRemove = mutableListOf<Projectile>()
         for (projectile in projectiles) {
             for (enemy in enemies) {
@@ -337,5 +388,14 @@ class Weapon(private val player: Player) {
             }
         }
         projectiles.removeAll(projectilesToRemove)
+
+        // Check melee attack collisions
+        for (meleeAttack in meleeAttacks) {
+            for (enemy in enemies) {
+                if (meleeAttack.bounds.overlaps(enemy.bounds)) {
+                    enemy.takeDamage(meleeAttack.damage)
+                }
+            }
+        }
     }
 }
