@@ -64,11 +64,14 @@ class MainMenuScreenTest {
         assert(screen.getSelectedWeaponType() == WeaponType.BURST)
 
         screen.handleInput(Keys.RIGHT)
+        assert(screen.getSelectedWeaponType() == WeaponType.MELEE)
+
+        screen.handleInput(Keys.RIGHT)
         assert(screen.getSelectedWeaponType() == WeaponType.SIMPLE)
 
         // Press LEFT to cycle backward
         screen.handleInput(Keys.LEFT)
-        assert(screen.getSelectedWeaponType() == WeaponType.BURST)
+        assert(screen.getSelectedWeaponType() == WeaponType.MELEE)
     }
 
     @Test
@@ -78,8 +81,10 @@ class MainMenuScreenTest {
 
         // Set up mock factory
         var capturedWeaponType: WeaponType? = null
-        screen.gameScreenFactory = { _, weaponType ->
+        var capturedDifficulty: DifficultyLevel? = null
+        screen.gameScreenFactory = { _, weaponType, difficulty ->
             capturedWeaponType = weaponType
+            capturedDifficulty = difficulty
             mockGameScreen
         }
 
@@ -93,10 +98,63 @@ class MainMenuScreenTest {
         // Start game
         screen.handleInput(Keys.SPACE)
 
-        // Verify game screen was created with correct weapon type
+        // Verify game screen was created with correct weapon type and default difficulty
         verify(game).setScreen(mockGameScreen)
         assert(capturedWeaponType == WeaponType.BEAM) {
             "Expected BEAM weapon type passed to factory, but got $capturedWeaponType"
+        }
+        assert(capturedDifficulty == DifficultyLevel.NORMAL) {
+            "Expected NORMAL difficulty passed to factory, but got $capturedDifficulty"
+        }
+    }
+
+    @Test
+    fun `test difficulty selection cycles through levels`() {
+        // Initial difficulty should be NORMAL
+        assert(screen.getSelectedDifficulty() == DifficultyLevel.NORMAL)
+
+        // Press UP to cycle forward
+        screen.handleInput(Keys.UP)
+        assert(screen.getSelectedDifficulty() == DifficultyLevel.HARD)
+
+        screen.handleInput(Keys.UP)
+        assert(screen.getSelectedDifficulty() == DifficultyLevel.EASY)
+
+        screen.handleInput(Keys.UP)
+        assert(screen.getSelectedDifficulty() == DifficultyLevel.NORMAL)
+
+        // Press DOWN to cycle backward
+        screen.handleInput(Keys.DOWN)
+        assert(screen.getSelectedDifficulty() == DifficultyLevel.EASY)
+    }
+
+    @Test
+    fun `test difficulty selection before starting game`() {
+        // Create mock GameScreen
+        val mockGameScreen: GameScreen = mock()
+
+        // Set up mock factory
+        var capturedWeaponType: WeaponType? = null
+        var capturedDifficulty: DifficultyLevel? = null
+        screen.gameScreenFactory = { _, weaponType, difficulty ->
+            capturedWeaponType = weaponType
+            capturedDifficulty = difficulty
+            mockGameScreen
+        }
+
+        // Select HARD difficulty
+        screen.handleInput(Keys.UP)
+        assert(screen.getSelectedDifficulty() == DifficultyLevel.HARD) {
+            "Expected HARD difficulty, but got ${screen.getSelectedDifficulty()}"
+        }
+
+        // Start game
+        screen.handleInput(Keys.SPACE)
+
+        // Verify game screen was created with correct difficulty
+        verify(game).setScreen(mockGameScreen)
+        assert(capturedDifficulty == DifficultyLevel.HARD) {
+            "Expected HARD difficulty passed to factory, but got $capturedDifficulty"
         }
     }
 }

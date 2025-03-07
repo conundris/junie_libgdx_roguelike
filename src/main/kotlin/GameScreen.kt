@@ -13,7 +13,8 @@ class GameScreen private constructor(
     private val game: VampireSurvivorsGame,
     private val camera: OrthographicCamera,
     private val shapeRenderer: ShapeRenderer,
-    private val ui: GameUI
+    private val ui: GameUI,
+    private val difficulty: DifficultyLevel = DifficultyLevel.NORMAL
 ) : Screen {
     internal lateinit var player: Player
     private val enemies = mutableListOf<Enemy>()  // Keep Enemy type for compatibility
@@ -24,23 +25,29 @@ class GameScreen private constructor(
     private var powerUpInterval = 10f  // Spawn power-up every 10 seconds
 
     companion object {
-        fun create(game: VampireSurvivorsGame, weaponType: WeaponType = WeaponType.SIMPLE): GameScreen {
+        fun create(
+            game: VampireSurvivorsGame,
+            weaponType: WeaponType = WeaponType.SIMPLE,
+            difficulty: DifficultyLevel = DifficultyLevel.NORMAL
+        ): GameScreen {
             val camera = OrthographicCamera().apply {
                 setToOrtho(false, 800f, 600f)
             }
-            return createWithCamera(game, weaponType, camera)
+            return createWithCamera(game, weaponType, difficulty, camera)
         }
 
         private fun createWithCamera(
             game: VampireSurvivorsGame,
             weaponType: WeaponType,
+            difficulty: DifficultyLevel,
             camera: OrthographicCamera
         ): GameScreen {
             val screen = GameScreen(
                 game = game,
                 camera = camera,
                 shapeRenderer = ShapeRenderer(),
-                ui = GameUI(game.batch)
+                ui = GameUI(game.batch),
+                difficulty = difficulty
             )
             screen.player = Player(weaponType)
             return screen
@@ -51,9 +58,10 @@ class GameScreen private constructor(
             game: VampireSurvivorsGame,
             camera: OrthographicCamera,
             shapeRenderer: ShapeRenderer,
-            ui: GameUI
+            ui: GameUI,
+            difficulty: DifficultyLevel = DifficultyLevel.NORMAL
         ): GameScreen {
-            val screen = GameScreen(game, camera, shapeRenderer, ui)
+            val screen = GameScreen(game, camera, shapeRenderer, ui, difficulty)
             screen.player = Player(WeaponType.SIMPLE)
             return screen
         }
@@ -67,7 +75,7 @@ class GameScreen private constructor(
         powerUpTimer = 0f
         gameTime = 0f
         difficultyLevel = 1
-        spawnInterval = 2f
+        spawnInterval = 2f / difficulty.enemySpawnRateMultiplier
         powerUpInterval = 10f
     }
 
@@ -78,8 +86,9 @@ class GameScreen private constructor(
         gameTime += delta
         difficultyLevel = (gameTime / 60f).toInt() + 1  // Increase difficulty every minute
 
-        // Adjust spawn interval based on difficulty
-        spawnInterval = (2f / difficultyLevel).coerceAtLeast(0.5f)
+        // Adjust spawn interval based on difficulty and difficulty level multiplier
+        val baseInterval = 2f / difficultyLevel
+        spawnInterval = (baseInterval / difficulty.enemySpawnRateMultiplier).coerceAtLeast(0.5f)
     }
 
     private fun spawnEnemy() {
@@ -92,8 +101,12 @@ class GameScreen private constructor(
             else -> Pair(-30f, (0..600).random().toFloat()) // left
         }
 
-        // Create basic enemy for compatibility
-        enemies.add(Enemy(x, y))
+        // Create enemy with difficulty-adjusted stats
+        val enemy = Enemy(x, y).apply {
+            health = (health * difficulty.enemyHealthMultiplier).toInt()
+            damage = (damage * difficulty.enemyDamageMultiplier).toInt()
+        }
+        enemies.add(enemy)
     }
 
     private fun spawnPowerUp() {
@@ -146,7 +159,8 @@ class GameScreen private constructor(
         // Handle dead enemies and experience gain
         val deadEnemies = enemies.filter { !it.isAlive() }
         deadEnemies.forEach { enemy ->
-            player.gainExperience(enemy.expValue)
+            val adjustedExp = (enemy.expValue * difficulty.experienceMultiplier).toInt()
+            player.gainExperience(adjustedExp)
         }
         enemies.removeAll { !it.isAlive() }
     }
