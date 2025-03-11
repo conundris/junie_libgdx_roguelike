@@ -62,8 +62,13 @@ class GameUIDebugTest {
             set(gameUI, font)
         }
 
-        // Get debug metrics instance
+        // Get debug metrics instance and ensure known state
         debugMetrics = DebugMetrics.getInstance()
+        // Ensure metrics start invisible
+        if (debugMetrics.isVisible()) {
+            debugMetrics.toggleVisibility()
+        }
+        println("[DEBUG_LOG] Initial visibility set to: ${debugMetrics.isVisible()}")
     }
 
     @Test
@@ -72,16 +77,20 @@ class GameUIDebugTest {
         val enemies = emptyList<Enemy>()
         val projectiles = emptyList<Projectile>()
 
-        // Initially metrics should be invisible
+        // Verify initial state
+        println("[DEBUG_LOG] Initial visibility in test: ${debugMetrics.isVisible()}")
         assert(!debugMetrics.isVisible()) { "Debug metrics should be initially invisible" }
 
         // Test F3 key toggle
+        println("[DEBUG_LOG] Testing F3 key toggle")
         whenever(input.isKeyJustPressed(Keys.F3)).thenReturn(true)
         whenever(input.isKeyJustPressed(Keys.O)).thenReturn(false)
         gameUI.render(shapeRenderer, player, enemies, projectiles)
+        println("[DEBUG_LOG] Visibility after F3 press: ${debugMetrics.isVisible()}")
         assert(debugMetrics.isVisible()) { "Debug metrics should be visible after F3 press" }
 
         // Reset F3 key and test O key toggle
+        println("[DEBUG_LOG] Testing O key toggle")
         whenever(input.isKeyJustPressed(Keys.F3)).thenReturn(false)
         whenever(input.isKeyJustPressed(Keys.O)).thenReturn(true)
         gameUI.render(shapeRenderer, player, enemies, projectiles)

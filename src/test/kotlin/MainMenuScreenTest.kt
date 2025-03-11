@@ -24,6 +24,12 @@ class MainMenuScreenTest {
                 // Initialize OpenGL context
                 Gdx.gl = mock()
                 Gdx.gl20 = mock()
+                // Mock Gdx.graphics
+                Gdx.graphics = mock()
+                whenever(Gdx.graphics.width).thenReturn(800)
+                whenever(Gdx.graphics.height).thenReturn(600)
+                // Mock Gdx.input
+                Gdx.input = mock()
             }
         }, config)
     }
@@ -44,6 +50,9 @@ class MainMenuScreenTest {
         batch = mock()
 
         whenever(game.batch).thenReturn(batch)
+
+        // Mock batch behavior
+        whenever(batch.projectionMatrix).thenReturn(com.badlogic.gdx.math.Matrix4())
 
         screen = MainMenuScreen.createForTesting(game, font, layout, shapeRenderer)
     }
@@ -76,16 +85,16 @@ class MainMenuScreenTest {
 
     @Test
     fun `test weapon selection before starting game`() {
-        // Create mock GameScreen
-        val mockGameScreen: GameScreen = mock()
+        // Create mock HubWorldScreen
+        val mockHubWorldScreen: HubWorldScreen = mock()
 
         // Set up mock factory
         var capturedWeaponType: WeaponType? = null
         var capturedDifficulty: DifficultyLevel? = null
-        screen.gameScreenFactory = { _, weaponType, difficulty ->
+        screen.hubWorldScreenFactory = { game: VampireSurvivorsGame, weaponType: WeaponType, difficulty: DifficultyLevel ->
             capturedWeaponType = weaponType
             capturedDifficulty = difficulty
-            mockGameScreen
+            mockHubWorldScreen
         }
 
         // Select BEAM weapon
@@ -98,8 +107,8 @@ class MainMenuScreenTest {
         // Start game
         screen.handleInput(Keys.SPACE)
 
-        // Verify game screen was created with correct weapon type and default difficulty
-        verify(game).setScreen(mockGameScreen)
+        // Verify hub world screen was created with correct weapon type and default difficulty
+        verify(game).setScreen(mockHubWorldScreen)
         assert(capturedWeaponType == WeaponType.BEAM) {
             "Expected BEAM weapon type passed to factory, but got $capturedWeaponType"
         }
@@ -130,16 +139,16 @@ class MainMenuScreenTest {
 
     @Test
     fun `test difficulty selection before starting game`() {
-        // Create mock GameScreen
-        val mockGameScreen: GameScreen = mock()
+        // Create mock HubWorldScreen
+        val mockHubWorldScreen: HubWorldScreen = mock()
 
         // Set up mock factory
         var capturedWeaponType: WeaponType? = null
         var capturedDifficulty: DifficultyLevel? = null
-        screen.gameScreenFactory = { _, weaponType, difficulty ->
+        screen.hubWorldScreenFactory = { game: VampireSurvivorsGame, weaponType: WeaponType, difficulty: DifficultyLevel ->
             capturedWeaponType = weaponType
             capturedDifficulty = difficulty
-            mockGameScreen
+            mockHubWorldScreen
         }
 
         // Select HARD difficulty
@@ -151,8 +160,8 @@ class MainMenuScreenTest {
         // Start game
         screen.handleInput(Keys.SPACE)
 
-        // Verify game screen was created with correct difficulty
-        verify(game).setScreen(mockGameScreen)
+        // Verify hub world screen was created with correct difficulty
+        verify(game).setScreen(mockHubWorldScreen)
         assert(capturedDifficulty == DifficultyLevel.HARD) {
             "Expected HARD difficulty passed to factory, but got $capturedDifficulty"
         }

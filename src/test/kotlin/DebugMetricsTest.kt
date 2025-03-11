@@ -33,11 +33,11 @@ class DebugMetricsTest {
     @BeforeEach
     fun setUp() {
         debugMetrics = DebugMetrics.getInstance()
-        println("[DEBUG_LOG] Initial visibility: ${debugMetrics.isVisible()}")
-        debugMetrics.toggleVisibility() // Reset visibility to false
-        println("[DEBUG_LOG] After first toggle: ${debugMetrics.isVisible()}")
-        debugMetrics.toggleVisibility() // Set visibility to true
-        println("[DEBUG_LOG] After second toggle: ${debugMetrics.isVisible()}")
+        // Ensure metrics start invisible
+        if (debugMetrics.isVisible()) {
+            debugMetrics.toggleVisibility()
+        }
+        println("[DEBUG_LOG] Initial visibility set to: ${debugMetrics.isVisible()}")
 
         // Mock player
         player = mock()
@@ -71,8 +71,9 @@ class DebugMetricsTest {
 
     @Test
     fun `test metrics collection`() {
-        // Make metrics visible first
+        // Make metrics visible and verify state
         debugMetrics.toggleVisibility()
+        assert(debugMetrics.isVisible()) { "Debug metrics should be visible for testing" }
         println("[DEBUG_LOG] Metrics visibility: ${debugMetrics.isVisible()}")
 
         // Update and get metrics
@@ -94,7 +95,8 @@ class DebugMetricsTest {
 
     @Test
     fun `test visibility toggle`() {
-        // Initially invisible
+        // Verify initial state (should be invisible from setUp)
+        println("[DEBUG_LOG] Initial visibility in toggle test: ${debugMetrics.isVisible()}")
         assert(!debugMetrics.isVisible()) { "Debug metrics should be initially invisible" }
         assert(debugMetrics.getMetricsText().isEmpty()) { "Metrics text should be empty when invisible" }
 

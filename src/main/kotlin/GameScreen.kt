@@ -14,7 +14,8 @@ class GameScreen private constructor(
     private val camera: OrthographicCamera,
     private val shapeRenderer: ShapeRenderer,
     private val ui: GameUI,
-    private val difficulty: DifficultyLevel = DifficultyLevel.NORMAL
+    private val difficulty: DifficultyLevel = DifficultyLevel.NORMAL,
+    private val mapType: MapType = MapType.FOREST
 ) : Screen {
     internal lateinit var player: Player
     internal val enemies = mutableListOf<Enemy>()  // Keep Enemy type for compatibility
@@ -34,19 +35,21 @@ class GameScreen private constructor(
         fun create(
             game: VampireSurvivorsGame,
             weaponType: WeaponType = WeaponType.SIMPLE,
-            difficulty: DifficultyLevel = DifficultyLevel.NORMAL
+            difficulty: DifficultyLevel = DifficultyLevel.NORMAL,
+            mapType: MapType = MapType.FOREST
         ): GameScreen {
             val camera = OrthographicCamera().apply {
                 setToOrtho(false, VIEWPORT_WIDTH, VIEWPORT_HEIGHT)
                 position.set(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, 0f)
             }
-            return createWithCamera(game, weaponType, difficulty, camera)
+            return createWithCamera(game, weaponType, difficulty, mapType, camera)
         }
 
         private fun createWithCamera(
             game: VampireSurvivorsGame,
             weaponType: WeaponType,
             difficulty: DifficultyLevel,
+            mapType: MapType,
             camera: OrthographicCamera
         ): GameScreen {
             val screen = GameScreen(
@@ -54,7 +57,8 @@ class GameScreen private constructor(
                 camera = camera,
                 shapeRenderer = ShapeRenderer(),
                 ui = GameUI(game.batch),
-                difficulty = difficulty
+                difficulty = difficulty,
+                mapType = mapType
             )
             screen.player = Player(weaponType).apply {
                 // Start player at the center of the world
@@ -69,9 +73,10 @@ class GameScreen private constructor(
             camera: OrthographicCamera,
             shapeRenderer: ShapeRenderer,
             ui: GameUI,
-            difficulty: DifficultyLevel = DifficultyLevel.NORMAL
+            difficulty: DifficultyLevel = DifficultyLevel.NORMAL,
+            mapType: MapType = MapType.FOREST
         ): GameScreen {
-            val screen = GameScreen(game, camera, shapeRenderer, ui, difficulty)
+            val screen = GameScreen(game, camera, shapeRenderer, ui, difficulty, mapType)
             screen.player = Player(WeaponType.SIMPLE).apply {
                 position.set(WORLD_WIDTH / 2, WORLD_HEIGHT / 2)
             }
@@ -110,23 +115,54 @@ class GameScreen private constructor(
         val viewportBottom = (camera.position.y - VIEWPORT_HEIGHT / 2).coerceIn(0f, WORLD_HEIGHT - VIEWPORT_HEIGHT)
         val viewportTop = viewportBottom + VIEWPORT_HEIGHT
 
+        // Adjust spawn behavior based on map type
+        val spawnMargin = when (mapType) {
+            MapType.DESERT -> SPAWN_MARGIN * 1.5f  // Enemies visible from further away in desert
+            MapType.DUNGEON -> SPAWN_MARGIN * 0.7f // Enemies spawn closer in dungeon
+            else -> SPAWN_MARGIN
+        }
+
         // Spawn enemies just outside the visible area
         val side = (0..3).random() // 0: top, 1: right, 2: bottom, 3: left
         val (x, y) = when (side) {
-            0 -> Pair(((viewportLeft - SPAWN_MARGIN).toInt()..(viewportRight + SPAWN_MARGIN).toInt()).random().toFloat(), 
-                     viewportTop + SPAWN_MARGIN) // top
-            1 -> Pair(viewportRight + SPAWN_MARGIN,
-                     ((viewportBottom - SPAWN_MARGIN).toInt()..(viewportTop + SPAWN_MARGIN).toInt()).random().toFloat()) // right
-            2 -> Pair(((viewportLeft - SPAWN_MARGIN).toInt()..(viewportRight + SPAWN_MARGIN).toInt()).random().toFloat(),
-                     viewportBottom - SPAWN_MARGIN) // bottom
-            else -> Pair(viewportLeft - SPAWN_MARGIN,
-                     ((viewportBottom - SPAWN_MARGIN).toInt()..(viewportTop + SPAWN_MARGIN).toInt()).random().toFloat()) // left
+            0 -> Pair(((viewportLeft - spawnMargin).toInt()..(viewportRight + spawnMargin).toInt()).random().toFloat(), 
+                     viewportTop + spawnMargin) // top
+            1 -> Pair(viewportRight + spawnMargin,
+                     ((viewportBottom - spawnMargin).toInt()..(viewportTop + spawnMargin).toInt()).random().toFloat()) // right
+            2 -> Pair(((viewportLeft - spawnMargin).toInt()..(viewportRight + spawnMargin).toInt()).random().toFloat(),
+                     viewportBottom - spawnMargin) // bottom
+            else -> Pair(viewportLeft - spawnMargin,
+                     ((viewportBottom - spawnMargin).toInt()..(viewportTop + spawnMargin).toInt()).random().toFloat()) // left
         }
 
-        // Create enemy with difficulty-adjusted stats
+        // Create enemy with difficulty-adjusted stats and map-specific modifications
         val enemy = Enemy(x, y).apply {
+            // Base difficulty adjustments
             health = (health * difficulty.enemyHealthMultiplier).toInt()
             damage = (damage * difficulty.enemyDamageMultiplier).toInt()
+
+            // Map-specific modifications
+            when (mapType) {
+                MapType.FOREST -> {
+                    // Balanced stats
+                }
+                MapType.DESERT -> {
+                    speed *= 1.2f  // Faster enemies in the desert
+                    health = (health * 0.8f).toInt()  // But lower health
+                }
+                MapType.DUNGEON -> {
+                    speed *= 0.8f  // Slower in tight spaces
+                    damage = (damage * 1.2f).toInt()  // But hit harder
+                }
+                MapType.CASTLE -> {
+                    health = (health * 1.2f).toInt()  // Tougher enemies
+                    speed *= 0.9f  // Slightly slower
+                }
+                MapType.GRAVEYARD -> {
+                    damage = (damage * 1.3f).toInt()  // More dangerous
+                    health = (health * 0.7f).toInt()  // But easier to kill
+                }
+            }
         }
         enemies.add(enemy)
     }
@@ -143,8 +179,33 @@ class GameScreen private constructor(
         val x = ((viewportLeft + margin).toInt()..(viewportRight - margin).toInt()).random().toFloat()
         val y = ((viewportBottom + margin).toInt()..(viewportTop - margin).toInt()).random().toFloat()
 
-        // Random power-up type
-        val type = PowerUpType.values().random()
+        // Adjust power-up spawn based on map type
+        val type = when (mapType) {
+            MapType.FOREST -> {
+                // Balanced power-up distribution
+                PowerUpType.values().random()
+            }
+            MapType.DESERT -> {
+                // More speed and damage boosts in the desert
+                when {
+                    Math.random() < 0.3 -> PowerUpType.SPEED
+                    Math.random() < 0.5 -> PowerUpType.DAMAGE
+                    else -> PowerUpType.values().random()
+                }
+            }
+            MapType.DUNGEON -> {
+                // More health in the dangerous dungeon
+                if (Math.random() < 0.4) PowerUpType.HEALTH else PowerUpType.values().random()
+            }
+            MapType.CASTLE -> {
+                // More damage boosts in the castle
+                if (Math.random() < 0.4) PowerUpType.DAMAGE else PowerUpType.values().random()
+            }
+            MapType.GRAVEYARD -> {
+                // More experience in the graveyard
+                if (Math.random() < 0.4) PowerUpType.EXPERIENCE else PowerUpType.values().random()
+            }
+        }
         powerUps.add(PowerUp(Vector2(x, y), type))
     }
 
@@ -227,8 +288,15 @@ class GameScreen private constructor(
             camera.position.y = player.position.y.coerceIn(VIEWPORT_HEIGHT / 2, WORLD_HEIGHT - VIEWPORT_HEIGHT / 2)
         }
 
-        // Clear screen
-        Gdx.gl.glClearColor(0.1f, 0.1f, 0.1f, 1f)
+        // Set background color based on map type
+        val (r, g, b) = when (mapType) {
+            MapType.FOREST -> Triple(0.1f, 0.3f, 0.1f)    // Dark green for forest
+            MapType.DESERT -> Triple(0.3f, 0.3f, 0.1f)    // Sandy color for desert
+            MapType.DUNGEON -> Triple(0.1f, 0.1f, 0.15f)  // Dark blue-grey for dungeon
+            MapType.CASTLE -> Triple(0.2f, 0.2f, 0.25f)   // Grey for castle
+            MapType.GRAVEYARD -> Triple(0.15f, 0.1f, 0.15f) // Dark purple for graveyard
+        }
+        Gdx.gl.glClearColor(r, g, b, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
 
         camera.update()

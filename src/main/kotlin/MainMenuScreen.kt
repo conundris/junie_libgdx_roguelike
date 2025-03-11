@@ -26,14 +26,14 @@ class MainMenuScreen private constructor(
     fun getSelectedDifficulty() = selectedDifficulty
 
     // For testing
-    internal var gameScreenFactory: (VampireSurvivorsGame, WeaponType, DifficultyLevel) -> GameScreen = { game, weaponType, difficulty ->
-        GameScreen.create(game, weaponType, difficulty)
+    internal var hubWorldScreenFactory: (VampireSurvivorsGame, WeaponType, DifficultyLevel) -> HubWorldScreen = { game, weaponType, difficulty ->
+        HubWorldScreen.create(game, weaponType, difficulty)
     }
 
     fun handleInput(key: Int) {
         when (key) {
             com.badlogic.gdx.Input.Keys.SPACE -> {
-                game.setScreen(gameScreenFactory(game, selectedWeaponType, selectedDifficulty))
+                game.setScreen(hubWorldScreenFactory(game, selectedWeaponType, selectedDifficulty))
                 dispose()
             }
             com.badlogic.gdx.Input.Keys.LEFT -> {
