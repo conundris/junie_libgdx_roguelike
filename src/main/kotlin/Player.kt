@@ -8,9 +8,13 @@ import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector2
 
 class Player(private val initialWeaponType: WeaponType = WeaponType.SIMPLE) {
+    companion object {
+        const val SIZE = 32f
+    }
+
     val position = Vector2(GameScreen.WORLD_WIDTH / 2, GameScreen.WORLD_HEIGHT / 2)
     val direction = Vector2(1f, 0f)  // Default facing right
-    val size = 32f
+    val size = SIZE
     private val baseSpeed = 200f
     var speed = baseSpeed
     var health = 100

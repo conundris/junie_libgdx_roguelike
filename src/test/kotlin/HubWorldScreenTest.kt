@@ -3,15 +3,20 @@ package org.example
 import com.badlogic.gdx.Application
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input.Keys
+import com.badlogic.gdx.Screen
 import com.badlogic.gdx.backends.headless.HeadlessApplication
 import com.badlogic.gdx.backends.headless.HeadlessApplicationConfiguration
+import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.GlyphLayout
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
+import com.badlogic.gdx.math.Vector3
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.*
+import org.mockito.ArgumentMatchers.anyFloat
+import org.example.Player
 
 class HubWorldScreenTest {
     private lateinit var app: Application
@@ -35,117 +40,139 @@ class HubWorldScreenTest {
     }
 
     private lateinit var game: VampireSurvivorsGame
+    private lateinit var camera: OrthographicCamera
     private lateinit var font: BitmapFont
     private lateinit var layout: GlyphLayout
     private lateinit var shapeRenderer: ShapeRenderer
     private lateinit var screen: HubWorldScreen
     private lateinit var batch: SpriteBatch
-    private val weaponType = WeaponType.SIMPLE
-    private val difficultyLevel = DifficultyLevel.NORMAL
 
     @BeforeEach
     fun setUp() {
-        // Mock dependencies
+        // Mock game and its dependencies
         game = mock()
+        camera = mock()
+        batch = mock()
         font = mock()
         layout = mock()
         shapeRenderer = mock()
-        batch = mock()
 
-        whenever(game.batch).thenReturn(batch)
+        // Set up game's shared resources
+        whenever(game.getBatch()).thenReturn(batch)
+        whenever(game.getFont()).thenReturn(font)
+        whenever(game.getLayout()).thenReturn(layout)
+        whenever(game.getShapeRenderer()).thenReturn(shapeRenderer)
+        whenever(batch.projectionMatrix).thenReturn(mock())
 
-        // Mock batch behavior
-        whenever(batch.projectionMatrix).thenReturn(com.badlogic.gdx.math.Matrix4())
+        // Mock camera position and viewport
+        val position = mock<Vector3>()
+        whenever(camera.position).thenReturn(position)
+        whenever(camera.viewportWidth).thenReturn(HubWorldScreen.WORLD_WIDTH)
+        whenever(camera.viewportHeight).thenReturn(HubWorldScreen.WORLD_HEIGHT)
+        whenever(camera.combined).thenReturn(mock())
 
         screen = HubWorldScreen.createForTesting(
             game = game,
+            camera = camera,
             font = font,
             layout = layout,
-            shapeRenderer = shapeRenderer,
-            weaponType = weaponType,
-            difficultyLevel = difficultyLevel
+            shapeRenderer = shapeRenderer
         )
     }
 
     @Test
-    fun `test map selection cycles through maps`() {
-        // Initial map should be FOREST
-        assert(screen.getSelectedMap() == MapType.FOREST)
+    fun `test B button triggers map selection`() {
+        // Mock input
+        whenever(Gdx.input.isKeyJustPressed(Keys.B)).thenReturn(true)
 
-        // Press RIGHT to cycle forward
-        screen.handleInput(Keys.RIGHT)
-        assert(screen.getSelectedMap() == MapType.DESERT)
+        // Create mock MapSelectionScreen
+        val mockMapSelectionScreen = mock<MapSelectionScreen>()
 
-        screen.handleInput(Keys.RIGHT)
-        assert(screen.getSelectedMap() == MapType.DUNGEON)
+        // Capture the screen that was set
+        var capturedScreen: Screen? = null
+        whenever(game.setScreen(any())).then { invocation ->
+            capturedScreen = invocation.arguments[0] as Screen
+            Unit
+        }
 
-        screen.handleInput(Keys.RIGHT)
-        assert(screen.getSelectedMap() == MapType.CASTLE)
+        // Handle input
+        screen.handleInput(0.016f)  // typical delta time
 
-        screen.handleInput(Keys.RIGHT)
-        assert(screen.getSelectedMap() == MapType.GRAVEYARD)
-
-        screen.handleInput(Keys.RIGHT)
-        assert(screen.getSelectedMap() == MapType.FOREST)
-
-        // Press LEFT to cycle backward
-        screen.handleInput(Keys.LEFT)
-        assert(screen.getSelectedMap() == MapType.GRAVEYARD)
+        // Verify MapSelectionScreen was created and set
+        verify(game).setScreen(any())
+        assert(capturedScreen is MapSelectionScreen)
     }
 
     @Test
-    fun `test starting game with selected map`() {
-        // Create mock GameScreen
-        val mockGameScreen: GameScreen = mock()
+    fun `test player movement`() {
+        val delta = 0.016f  // typical delta time
+        val initialPosition = screen.getPlayerPosition().cpy()
 
-        // Set up mock factory
-        var capturedWeaponType: WeaponType? = null
-        var capturedDifficulty: DifficultyLevel? = null
-        var capturedMapType: MapType? = null
-        screen.gameScreenFactory = { _, weaponType, difficulty, mapType ->
-            capturedWeaponType = weaponType
-            capturedDifficulty = difficulty
-            capturedMapType = mapType
-            mockGameScreen
+        // Test right movement
+        whenever(Gdx.input.isKeyPressed(Keys.RIGHT)).thenReturn(true)
+        screen.handleInput(delta)
+        assert(screen.getPlayerPosition().x > initialPosition.x) { 
+            "Player should move right. Expected x > ${initialPosition.x}, but was ${screen.getPlayerPosition().x}" 
         }
 
-        // Select DUNGEON map
-        screen.handleInput(Keys.RIGHT)
-        screen.handleInput(Keys.RIGHT)
-        assert(screen.getSelectedMap() == MapType.DUNGEON) {
-            "Expected DUNGEON map type, but got ${screen.getSelectedMap()}"
+        // Reset position
+        screen.getPlayerPosition().set(initialPosition)
+
+        // Test up movement
+        whenever(Gdx.input.isKeyPressed(Keys.RIGHT)).thenReturn(false)
+        whenever(Gdx.input.isKeyPressed(Keys.UP)).thenReturn(true)
+        screen.handleInput(delta)
+        assert(screen.getPlayerPosition().y > initialPosition.y) { 
+            "Player should move up. Expected y > ${initialPosition.y}, but was ${screen.getPlayerPosition().y}" 
         }
 
-        // Start game
-        screen.handleInput(Keys.SPACE)
-
-        // Verify game screen was created with correct parameters
-        verify(game).setScreen(mockGameScreen)
-        assert(capturedWeaponType == WeaponType.SIMPLE) {
-            "Expected SIMPLE weapon type passed to factory, but got $capturedWeaponType"
-        }
-        assert(capturedDifficulty == DifficultyLevel.NORMAL) {
-            "Expected NORMAL difficulty passed to factory, but got $capturedDifficulty"
-        }
-        assert(capturedMapType == MapType.DUNGEON) {
-            "Expected DUNGEON map type passed to factory, but got $capturedMapType"
+        // Test diagonal movement
+        screen.getPlayerPosition().set(initialPosition)
+        whenever(Gdx.input.isKeyPressed(Keys.RIGHT)).thenReturn(true)
+        whenever(Gdx.input.isKeyPressed(Keys.UP)).thenReturn(true)
+        screen.handleInput(delta)
+        assert(screen.getPlayerPosition().x > initialPosition.x && screen.getPlayerPosition().y > initialPosition.y) {
+            "Player should move diagonally. Position: ${screen.getPlayerPosition()}, Initial: $initialPosition"
         }
     }
 
     @Test
-    fun `test returning to main menu`() {
-        // Create mock MainMenuScreen
-        val mockMainMenuScreen: MainMenuScreen = mock()
+    fun `test hint display`() {
+        // Mock layout behavior
+        whenever(layout.width).thenReturn(100f)
 
-        // Set up mock factory
-        screen.mainMenuScreenFactory = { game ->
-            mockMainMenuScreen
-        }
+        // Render with hint timer active
+        screen.render(0f)
 
-        // Press ESC to return to main menu
-        screen.handleInput(Keys.ESCAPE)
+        // Verify hint text was drawn
+        verify(font).draw(eq(batch), eq("Press B to open map selection"), anyFloat(), anyFloat())
 
-        // Verify transition to main menu
-        verify(game).setScreen(mockMainMenuScreen)
+        // Render after hint timer expires
+        screen.render(6f)  // HINT_DISPLAY_TIME is 5f
+
+        // Verify hint text was not drawn
+        verify(font, times(1)).draw(eq(batch), eq("Press B to open map selection"), anyFloat(), anyFloat())
+    }
+
+    @Test
+    fun `test camera follows player`() {
+        val delta = 0.016f
+        val initialPosition = screen.getPlayerPosition().cpy()
+
+        // Move player right
+        whenever(Gdx.input.isKeyPressed(Keys.RIGHT)).thenReturn(true)
+        screen.handleInput(delta)
+
+        // Camera should be centered on player
+        val expectedX = screen.getPlayerPosition().x + Player.SIZE / 2
+        val expectedY = screen.getPlayerPosition().y + Player.SIZE / 2
+
+        // Verify camera position was updated
+        verify(camera).update()
+        verify(camera.position).set(
+            eq(expectedX.coerceIn(camera.viewportWidth / 2, HubWorldScreen.WORLD_WIDTH - camera.viewportWidth / 2)),
+            eq(expectedY.coerceIn(camera.viewportHeight / 2, HubWorldScreen.WORLD_HEIGHT - camera.viewportHeight / 2)),
+            eq(0f)
+        )
     }
 }

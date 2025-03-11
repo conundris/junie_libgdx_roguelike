@@ -37,7 +37,7 @@ class GameScreenTest {
         ui = mock()
         batch = mock()
 
-        whenever(game.batch).thenReturn(batch)
+        whenever(game.getBatch()).thenReturn(batch)
 
         // Create GameScreen with BEAM weapon
         screen = GameScreen.createForTesting(game, camera, shapeRenderer, ui)

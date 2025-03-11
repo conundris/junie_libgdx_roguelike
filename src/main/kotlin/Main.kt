@@ -5,14 +5,28 @@ import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration
 import com.badlogic.gdx.graphics.GL20
+import com.badlogic.gdx.graphics.g2d.BitmapFont
+import com.badlogic.gdx.graphics.g2d.GlyphLayout
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 
 class VampireSurvivorsGame : Game() {
-    lateinit var batch: SpriteBatch
+    private lateinit var _batch: SpriteBatch
+    private lateinit var _font: BitmapFont
+    private lateinit var _shapeRenderer: ShapeRenderer
+    private lateinit var _layout: GlyphLayout
+
+    fun getBatch(): SpriteBatch = _batch
+    fun getFont(): BitmapFont = _font
+    fun getShapeRenderer(): ShapeRenderer = _shapeRenderer
+    fun getLayout(): GlyphLayout = _layout
 
     override fun create() {
-        batch = SpriteBatch()
-        setScreen(MainMenuScreen.create(this))
+        _batch = SpriteBatch()
+        _font = BitmapFont()
+        _shapeRenderer = ShapeRenderer()
+        _layout = GlyphLayout()
+        setScreen(HubWorldScreen.create(this))
     }
 
     override fun render() {
@@ -22,7 +36,10 @@ class VampireSurvivorsGame : Game() {
     }
 
     override fun dispose() {
-        batch.dispose()
+        _batch.dispose()
+        _font.dispose()
+        _shapeRenderer.dispose()
+        screen?.dispose()
     }
 }
 

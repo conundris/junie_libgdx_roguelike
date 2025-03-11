@@ -56,7 +56,7 @@ class GameScreen private constructor(
                 game = game,
                 camera = camera,
                 shapeRenderer = ShapeRenderer(),
-                ui = GameUI(game.batch),
+                ui = GameUI(game.getBatch()),
                 difficulty = difficulty,
                 mapType = mapType
             )
@@ -300,7 +300,7 @@ class GameScreen private constructor(
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
 
         camera.update()
-        game.batch.projectionMatrix = camera.combined
+        game.getBatch().projectionMatrix = camera.combined
         shapeRenderer.projectionMatrix = camera.combined
 
         // Draw world boundary
@@ -315,8 +315,8 @@ class GameScreen private constructor(
         player.render(shapeRenderer)  // Render player and weapon last
 
         // Reset projection matrix for UI rendering
-        game.batch.projectionMatrix.setToOrtho2D(0f, 0f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
-        shapeRenderer.projectionMatrix = game.batch.projectionMatrix
+        game.getBatch().projectionMatrix.setToOrtho2D(0f, 0f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
+        shapeRenderer.projectionMatrix = game.getBatch().projectionMatrix
 
         // Draw minimap in the corner
         val minimapSize = 100f

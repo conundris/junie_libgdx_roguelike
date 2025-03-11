@@ -12,6 +12,7 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.*
+import org.mockito.ArgumentMatchers.anyFloat
 
 class MainMenuScreenTest {
     private lateinit var app: Application
@@ -49,7 +50,7 @@ class MainMenuScreenTest {
         shapeRenderer = mock()
         batch = mock()
 
-        whenever(game.batch).thenReturn(batch)
+        whenever(game.getBatch()).thenReturn(batch)
 
         // Mock batch behavior
         whenever(batch.projectionMatrix).thenReturn(com.badlogic.gdx.math.Matrix4())
@@ -58,112 +59,35 @@ class MainMenuScreenTest {
     }
 
     @Test
-    fun `test weapon selection cycles through types`() {
-        // Initial weapon should be SIMPLE
-        assert(screen.getSelectedWeaponType() == WeaponType.SIMPLE)
-
-        // Press RIGHT to cycle forward
-        screen.handleInput(Keys.RIGHT)
-        assert(screen.getSelectedWeaponType() == WeaponType.SPREAD)
-
-        screen.handleInput(Keys.RIGHT)
-        assert(screen.getSelectedWeaponType() == WeaponType.BEAM)
-
-        screen.handleInput(Keys.RIGHT)
-        assert(screen.getSelectedWeaponType() == WeaponType.BURST)
-
-        screen.handleInput(Keys.RIGHT)
-        assert(screen.getSelectedWeaponType() == WeaponType.MELEE)
-
-        screen.handleInput(Keys.RIGHT)
-        assert(screen.getSelectedWeaponType() == WeaponType.SIMPLE)
-
-        // Press LEFT to cycle backward
-        screen.handleInput(Keys.LEFT)
-        assert(screen.getSelectedWeaponType() == WeaponType.MELEE)
-    }
-
-    @Test
-    fun `test weapon selection before starting game`() {
+    fun `test space key transitions to hub world`() {
         // Create mock HubWorldScreen
         val mockHubWorldScreen: HubWorldScreen = mock()
 
         // Set up mock factory
-        var capturedWeaponType: WeaponType? = null
-        var capturedDifficulty: DifficultyLevel? = null
-        screen.hubWorldScreenFactory = { game: VampireSurvivorsGame, weaponType: WeaponType, difficulty: DifficultyLevel ->
-            capturedWeaponType = weaponType
-            capturedDifficulty = difficulty
+        screen.hubWorldScreenFactory = { game: VampireSurvivorsGame ->
             mockHubWorldScreen
         }
 
-        // Select BEAM weapon
-        screen.handleInput(Keys.RIGHT)
-        screen.handleInput(Keys.RIGHT)
-        assert(screen.getSelectedWeaponType() == WeaponType.BEAM) {
-            "Expected BEAM weapon type, but got ${screen.getSelectedWeaponType()}"
-        }
-
-        // Start game
+        // Press SPACE to start game
         screen.handleInput(Keys.SPACE)
 
-        // Verify hub world screen was created with correct weapon type and default difficulty
+        // Verify hub world screen was created
         verify(game).setScreen(mockHubWorldScreen)
-        assert(capturedWeaponType == WeaponType.BEAM) {
-            "Expected BEAM weapon type passed to factory, but got $capturedWeaponType"
-        }
-        assert(capturedDifficulty == DifficultyLevel.NORMAL) {
-            "Expected NORMAL difficulty passed to factory, but got $capturedDifficulty"
-        }
     }
 
     @Test
-    fun `test difficulty selection cycles through levels`() {
-        // Initial difficulty should be NORMAL
-        assert(screen.getSelectedDifficulty() == DifficultyLevel.NORMAL)
+    fun `test render displays correct text`() {
+        // Mock font behavior for title
+        whenever(layout.width).thenReturn(100f)  // arbitrary width
 
-        // Press UP to cycle forward
-        screen.handleInput(Keys.UP)
-        assert(screen.getSelectedDifficulty() == DifficultyLevel.HARD)
+        screen.render(0f)
 
-        screen.handleInput(Keys.UP)
-        assert(screen.getSelectedDifficulty() == DifficultyLevel.EASY)
+        // Verify font configuration
+        verify(font).getData()
+        verify(font).setColor(any())
 
-        screen.handleInput(Keys.UP)
-        assert(screen.getSelectedDifficulty() == DifficultyLevel.NORMAL)
-
-        // Press DOWN to cycle backward
-        screen.handleInput(Keys.DOWN)
-        assert(screen.getSelectedDifficulty() == DifficultyLevel.EASY)
-    }
-
-    @Test
-    fun `test difficulty selection before starting game`() {
-        // Create mock HubWorldScreen
-        val mockHubWorldScreen: HubWorldScreen = mock()
-
-        // Set up mock factory
-        var capturedWeaponType: WeaponType? = null
-        var capturedDifficulty: DifficultyLevel? = null
-        screen.hubWorldScreenFactory = { game: VampireSurvivorsGame, weaponType: WeaponType, difficulty: DifficultyLevel ->
-            capturedWeaponType = weaponType
-            capturedDifficulty = difficulty
-            mockHubWorldScreen
-        }
-
-        // Select HARD difficulty
-        screen.handleInput(Keys.UP)
-        assert(screen.getSelectedDifficulty() == DifficultyLevel.HARD) {
-            "Expected HARD difficulty, but got ${screen.getSelectedDifficulty()}"
-        }
-
-        // Start game
-        screen.handleInput(Keys.SPACE)
-
-        // Verify hub world screen was created with correct difficulty
-        verify(game).setScreen(mockHubWorldScreen)
-        assert(capturedDifficulty == DifficultyLevel.HARD) {
-            "Expected HARD difficulty passed to factory, but got $capturedDifficulty"
-        }
+        // Verify title and play text were drawn
+        verify(font).draw(eq(batch), eq("Vampire Survivors Clone"), anyFloat(), anyFloat())
+        verify(font).draw(eq(batch), eq("Press SPACE to Play"), anyFloat(), anyFloat())
     }
 }
