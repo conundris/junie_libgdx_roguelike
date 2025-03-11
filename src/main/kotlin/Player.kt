@@ -7,21 +7,30 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType
 import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector2
 
-class Player(private val initialWeaponType: WeaponType = WeaponType.SIMPLE) {
+open class Player(
+    private val initialWeaponType: WeaponType = WeaponType.SIMPLE,
+    initialX: Float? = null,
+    initialY: Float? = null,
+    private val worldWidth: Float = GameScreen.WORLD_WIDTH,
+    private val worldHeight: Float = GameScreen.WORLD_HEIGHT
+) {
     companion object {
         const val SIZE = 32f
     }
 
-    val position = Vector2(GameScreen.WORLD_WIDTH / 2, GameScreen.WORLD_HEIGHT / 2)
-    val direction = Vector2(1f, 0f)  // Default facing right
-    val size = SIZE
-    private val baseSpeed = 200f
-    var speed = baseSpeed
-    var health = 100
-    val bounds = Rectangle()
-    val weapon: Weapon
-    val experience: Experience
-    var isAutoTargeting = false
+    open val position = Vector2(
+        initialX ?: worldWidth / 2,
+        initialY ?: worldHeight / 2
+    )
+    open val direction = Vector2(1f, 0f)  // Default facing right
+    open val size = SIZE
+    protected val baseSpeed = 200f
+    open var speed = baseSpeed
+    open var health = 100
+    open val bounds = Rectangle()
+    open val weapon: Weapon
+    open val experience: Experience
+    open var isAutoTargeting = false
 
     // Power-up effect timers
     private var speedBoostTimer = 0f
@@ -42,9 +51,13 @@ class Player(private val initialWeaponType: WeaponType = WeaponType.SIMPLE) {
 
     init {
         updateBounds()
-        weapon = Weapon(this, initialWeaponType)
-        experience = Experience(this)
+        weapon = createWeapon()
+        experience = createExperience()
     }
+
+    // Factory methods that can be overridden in tests
+    protected open fun createWeapon(): Weapon = Weapon(this, initialWeaponType)
+    protected open fun createExperience(): Experience = Experience(this)
 
     fun gainExperience(amount: Int) {
         experience.addExp(amount)
@@ -104,8 +117,8 @@ class Player(private val initialWeaponType: WeaponType = WeaponType.SIMPLE) {
         }
 
         // Keep player within world bounds
-        position.x = position.x.coerceIn(0f, GameScreen.WORLD_WIDTH - size)
-        position.y = position.y.coerceIn(0f, GameScreen.WORLD_HEIGHT - size)
+        position.x = position.x.coerceIn(0f, worldWidth - size)
+        position.y = position.y.coerceIn(0f, worldHeight - size)
 
         updateBounds()
     }

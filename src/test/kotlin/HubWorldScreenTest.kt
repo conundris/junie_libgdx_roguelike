@@ -76,7 +76,8 @@ class HubWorldScreenTest {
             camera = camera,
             font = font,
             layout = layout,
-            shapeRenderer = shapeRenderer
+            shapeRenderer = shapeRenderer,
+            playerFactory = { x, y, w, h -> TestPlayer(x, y, w, h) }
         )
     }
 

@@ -16,7 +16,10 @@ class HubWorldScreen private constructor(
     private val camera: OrthographicCamera,
     private val font: BitmapFont,
     private val layout: GlyphLayout,
-    private val shapeRenderer: ShapeRenderer
+    private val shapeRenderer: ShapeRenderer,
+    initialX: Float = WORLD_WIDTH / 2,
+    initialY: Float = WORLD_HEIGHT / 2,
+    private val playerFactory: (Float?, Float?, Float, Float) -> Player = { x, y, w, h -> Player(initialX = x, initialY = y, worldWidth = w, worldHeight = h) }
 ) : Screen {
     companion object {
         const val WORLD_WIDTH = 800f
@@ -32,7 +35,9 @@ class HubWorldScreen private constructor(
                 camera = camera,
                 font = game.getFont(),
                 layout = game.getLayout(),
-                shapeRenderer = game.getShapeRenderer()
+                shapeRenderer = game.getShapeRenderer(),
+                initialX = WORLD_WIDTH / 2,
+                initialY = WORLD_HEIGHT / 2
             )
         }
 
@@ -42,19 +47,25 @@ class HubWorldScreen private constructor(
             camera: OrthographicCamera,
             font: BitmapFont,
             layout: GlyphLayout,
-            shapeRenderer: ShapeRenderer
+            shapeRenderer: ShapeRenderer,
+            initialX: Float = WORLD_WIDTH / 2,
+            initialY: Float = WORLD_HEIGHT / 2,
+            playerFactory: (Float?, Float?, Float, Float) -> Player = { x, y, w, h -> Player(initialX = x, initialY = y, worldWidth = w, worldHeight = h) }
         ): HubWorldScreen {
             return HubWorldScreen(
                 game = game,
                 camera = camera,
                 font = font,
                 layout = layout,
-                shapeRenderer = shapeRenderer
+                shapeRenderer = shapeRenderer,
+                initialX = initialX,
+                initialY = initialY,
+                playerFactory = playerFactory
             )
         }
     }
 
-    private val player = Player()
+    private val player = playerFactory(initialX, initialY, WORLD_WIDTH, WORLD_HEIGHT)
     private var hintTimer = HINT_DISPLAY_TIME
 
     // For testing
