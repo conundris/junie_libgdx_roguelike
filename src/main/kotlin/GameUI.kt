@@ -73,11 +73,47 @@ class GameUI(private val batch: SpriteBatch) {
 
             font.getData().setScale(1f)
             player.experience.availableUpgrades.forEachIndexed { index, upgrade ->
-                val optionText = "${index + 1}. ${upgrade.name}: ${upgrade.description}"
+                // Determine if this is a weapon-specific upgrade
+                val isWeaponSpecific = upgrade.applicableWeaponTypes.size == 1
+                val currentWeaponType = player.weapon.getCurrentWeaponType()
+                val isForCurrentWeapon = upgrade.applicableWeaponTypes.contains(currentWeaponType)
+
+                // Set color based on upgrade type
+                if (isWeaponSpecific && isForCurrentWeapon) {
+                    // Weapon-specific upgrade for current weapon - gold color
+                    font.setColor(1f, 0.85f, 0f, 1f)
+                } else if (isWeaponSpecific) {
+                    // Weapon-specific upgrade for other weapon - gray color (shouldn't happen with current logic)
+                    font.setColor(0.7f, 0.7f, 0.7f, 1f)
+                } else {
+                    // Generic upgrade - white color
+                    font.setColor(1f, 1f, 1f, 1f)
+                }
+
+                // Create prefix based on upgrade type
+                val prefix = if (isWeaponSpecific && isForCurrentWeapon) {
+                    // Add weapon type to prefix for weapon-specific upgrades
+                    val weaponName = when(currentWeaponType) {
+                        WeaponType.SIMPLE -> "SIMPLE"
+                        WeaponType.SPREAD -> "SPREAD"
+                        WeaponType.BEAM -> "BEAM"
+                        WeaponType.BURST -> "BURST"
+                        WeaponType.MELEE -> "MELEE"
+                    }
+                    "${index + 1}. [${weaponName}] "
+                } else {
+                    "${index + 1}. "
+                }
+
+                // Draw the upgrade option
+                val optionText = "${prefix}${upgrade.name}: ${upgrade.description}"
                 layout.setText(font, optionText)
                 font.draw(batch, optionText,
                          (Gdx.graphics.width - layout.width) / 2,
                          Gdx.graphics.height * (0.6f - index * 0.1f))
+
+                // Reset color to white for next text
+                font.setColor(Color.WHITE)
             }
 
             val helpText = "Press 1-3 to select an upgrade"
