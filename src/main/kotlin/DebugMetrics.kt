@@ -19,7 +19,7 @@ class DebugMetrics {
     private var playerExpProgress: Float = 0f
     private var isVisible: Boolean = false
 
-    fun update(enemies: List<Enemy>, projectiles: List<Projectile>, player: Player) {
+    fun update(enemies: List<BaseEnemy>, projectiles: List<Projectile>, player: Player) {
         fps = Gdx.graphics.framesPerSecond
         frameTime = Gdx.graphics.deltaTime * 1000 // Convert to milliseconds
         javaHeap = Gdx.app.javaHeap

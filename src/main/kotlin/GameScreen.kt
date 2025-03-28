@@ -18,12 +18,18 @@ class GameScreen private constructor(
     private val mapType: MapType = MapType.FOREST
 ) : Screen {
     internal lateinit var player: Player
-    internal val enemies = mutableListOf<Enemy>()  // Keep Enemy type for compatibility
+    internal val enemies = mutableListOf<BaseEnemy>()  // Changed to BaseEnemy to support all enemy types
     internal val powerUps = mutableListOf<PowerUp>()
     internal var spawnTimer = 0f
     internal var spawnInterval = 2f  // Initial spawn interval
     internal var powerUpTimer = 0f
     internal var powerUpInterval = 10f  // Spawn power-up every 10 seconds
+
+    // Boss spawning variables
+    internal var bossSpawned = false
+    internal val bossSpawnTime = 900f  // 15 minutes in seconds
+    internal var bossAnnounced = false
+    internal val bossAnnounceTime = 870f  // 30 seconds before boss (14:30 mark)
 
     companion object {
         const val WORLD_WIDTH = 2400f  // 3x original width
@@ -94,6 +100,10 @@ class GameScreen private constructor(
         difficultyLevel = 1
         spawnInterval = 2f / difficulty.enemySpawnRateMultiplier
         powerUpInterval = 10f
+
+        // Reset boss-related variables
+        bossSpawned = false
+        bossAnnounced = false
     }
 
     internal var gameTime = 0f
@@ -109,6 +119,12 @@ class GameScreen private constructor(
     }
 
     private fun spawnEnemy() {
+        // Check if it's time to spawn the boss
+        if (gameTime >= bossSpawnTime && !bossSpawned) {
+            spawnBoss()
+            return
+        }
+
         // Get camera viewport bounds
         val viewportLeft = (camera.position.x - VIEWPORT_WIDTH / 2).coerceIn(0f, WORLD_WIDTH - VIEWPORT_WIDTH)
         val viewportRight = viewportLeft + VIEWPORT_WIDTH
@@ -135,8 +151,22 @@ class GameScreen private constructor(
                      ((viewportBottom - spawnMargin).toInt()..(viewportTop + spawnMargin).toInt()).random().toFloat()) // left
         }
 
-        // Create enemy with difficulty-adjusted stats and map-specific modifications
-        val enemy = Enemy(x, y).apply {
+        // Determine enemy type based on difficulty level and randomness
+        val enemy: BaseEnemy = when {
+            // Higher chance of special enemies as difficulty increases
+            Math.random() < 0.1 + (difficultyLevel * 0.02) -> {
+                when ((0..2).random()) {
+                    0 -> FastEnemy(x, y)
+                    1 -> TankEnemy(x, y)
+                    else -> RangedEnemy(x, y)
+                }
+            }
+            // Default to basic enemy
+            else -> BasicEnemy(x, y)
+        }
+
+        // Apply difficulty adjustments
+        enemy.apply {
             // Base difficulty adjustments
             health = (health * difficulty.enemyHealthMultiplier).toInt()
             damage = (damage * difficulty.enemyDamageMultiplier).toInt()
@@ -165,6 +195,47 @@ class GameScreen private constructor(
             }
         }
         enemies.add(enemy)
+    }
+
+    private fun spawnBoss() {
+        // Spawn boss in the center of the screen
+        val viewportLeft = (camera.position.x - VIEWPORT_WIDTH / 2).coerceIn(0f, WORLD_WIDTH - VIEWPORT_WIDTH)
+        val viewportRight = viewportLeft + VIEWPORT_WIDTH
+        val viewportBottom = (camera.position.y - VIEWPORT_HEIGHT / 2).coerceIn(0f, WORLD_HEIGHT - VIEWPORT_HEIGHT)
+        val viewportTop = viewportBottom + VIEWPORT_HEIGHT
+
+        // Position the boss at a distance from the player
+        val bossX = viewportLeft + VIEWPORT_WIDTH * 0.75f
+        val bossY = viewportBottom + VIEWPORT_HEIGHT * 0.75f
+
+        // Create the boss with difficulty adjustments
+        val boss = BossEnemy(bossX, bossY).apply {
+            // Apply difficulty adjustments
+            health = (health * difficulty.enemyHealthMultiplier * 1.5f).toInt()
+            damage = (damage * difficulty.enemyDamageMultiplier * 1.2f).toInt()
+
+            // Map-specific modifications
+            when (mapType) {
+                MapType.FOREST -> {
+                    // Balanced stats
+                }
+                MapType.DESERT -> {
+                    speed *= 1.1f
+                }
+                MapType.DUNGEON -> {
+                    health = (health * 1.2f).toInt()
+                }
+                MapType.CASTLE -> {
+                    damage = (damage * 1.2f).toInt()
+                }
+                MapType.GRAVEYARD -> {
+                    speed *= 1.2f
+                }
+            }
+        }
+
+        enemies.add(boss)
+        bossSpawned = true
     }
 
     private fun spawnPowerUp() {
@@ -277,6 +348,12 @@ class GameScreen private constructor(
             }
         }
 
+        // Check for boss announcement
+        if (gameTime >= bossAnnounceTime && !bossAnnounced && !bossSpawned) {
+            bossAnnounced = true
+            // Boss announcement logic will be handled in UI rendering
+        }
+
         // Update game state if player is alive and not selecting upgrade
         if (player.isAlive() && !player.experience.isSelectingUpgrade) {
             updateEnemies(delta)
@@ -377,7 +454,7 @@ class GameScreen private constructor(
         }
 
         // Render UI
-        ui.render(shapeRenderer, player, enemies, player.weapon.getProjectiles())
+        ui.render(shapeRenderer, player, enemies, player.weapon.getProjectiles(), bossAnnounced, bossSpawned)
     }
 
     override fun resize(width: Int, height: Int) {

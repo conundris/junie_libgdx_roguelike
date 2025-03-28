@@ -78,7 +78,7 @@ open class Player(
         bounds.set(position.x, position.y, size, size)
     }
 
-    fun update(delta: Float, enemies: List<Enemy>) {
+    fun update(delta: Float, enemies: List<BaseEnemy>) {
         handleInput(delta)
         weapon.update(delta, enemies)
 

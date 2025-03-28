@@ -75,7 +75,7 @@ class Weapon(private val player: Player, initialType: WeaponType = WeaponType.SI
     private var chargeTimer = 0f
     private var isCharging = false
     private val targetingRange = 300f  // Range for auto-targeting
-    private var currentTarget: Enemy? = null
+    private var currentTarget: BaseEnemy? = null
 
     // Current weapon configuration
     private var currentType = initialType
@@ -157,7 +157,7 @@ class Weapon(private val player: Player, initialType: WeaponType = WeaponType.SI
         meleeDuration += amount
     }
 
-    fun update(delta: Float, enemies: List<Enemy>) {
+    fun update(delta: Float, enemies: List<BaseEnemy>) {
         // Update timers
         attackTimer += delta
         if (specialAttackCooldown > 0) {
@@ -220,8 +220,8 @@ class Weapon(private val player: Player, initialType: WeaponType = WeaponType.SI
         }
     }
 
-    private fun findNearestEnemy(enemies: List<Enemy>): Enemy? {
-        var nearest: Enemy? = null
+    private fun findNearestEnemy(enemies: List<BaseEnemy>): BaseEnemy? {
+        var nearest: BaseEnemy? = null
         var minDistance = Float.MAX_VALUE
         val playerCenter = Vector2(player.position).add(player.size / 2, player.size / 2)
 
@@ -405,7 +405,7 @@ class Weapon(private val player: Player, initialType: WeaponType = WeaponType.SI
         }
     }
 
-    fun checkCollisions(enemies: List<Enemy>) {
+    fun checkCollisions(enemies: List<BaseEnemy>) {
         // Check projectile collisions
         val projectilesToRemove = mutableListOf<Projectile>()
         for (projectile in projectiles) {

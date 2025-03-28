@@ -19,7 +19,7 @@ class GameUI(private val batch: SpriteBatch) {
     private val healthBarY = Gdx.graphics.height - barHeight - padding
     private val debugMetrics = DebugMetrics.getInstance()
 
-    fun render(shapeRenderer: ShapeRenderer, player: Player, enemies: List<Enemy>, projectiles: List<Projectile>) {
+    fun render(shapeRenderer: ShapeRenderer, player: Player, enemies: List<BaseEnemy>, projectiles: List<Projectile>, bossAnnounced: Boolean = false, bossSpawned: Boolean = false) {
         // Update debug metrics
         debugMetrics.update(enemies, projectiles, player)
 
@@ -103,6 +103,75 @@ class GameUI(private val batch: SpriteBatch) {
         }
 
         font.getData().setScale(1f)  // Reset font scale
+
+        // Render boss announcement or boss health bar
+        if (bossAnnounced || bossSpawned) {
+            if (bossSpawned) {
+                // Find the boss in the enemies list
+                val boss = enemies.find { it is BossEnemy }
+                if (boss != null) {
+                    // Draw boss health bar at the top of the screen
+                    val bossHealthPercentage = boss.health.toFloat() / 500f  // Assuming max health is 500
+
+                    // Draw boss health bar background
+                    shapeRenderer.begin(ShapeType.Filled)
+                    shapeRenderer.setColor(0.5f, 0f, 0.5f, 1f)  // Purple background
+                    shapeRenderer.rect(
+                        Gdx.graphics.width / 2f - 200f, 
+                        Gdx.graphics.height - 40f, 
+                        400f, 
+                        30f
+                    )
+
+                    // Draw boss health bar fill
+                    shapeRenderer.setColor(0.8f, 0f, 0.8f, 1f)  // Brighter purple fill
+                    shapeRenderer.rect(
+                        Gdx.graphics.width / 2f - 200f, 
+                        Gdx.graphics.height - 40f, 
+                        400f * bossHealthPercentage, 
+                        30f
+                    )
+                    shapeRenderer.end()
+
+                    // Draw boss label
+                    font.getData().setScale(1.5f)
+                    font.setColor(1f, 0f, 1f, 1f)  // Bright purple text
+                    layout.setText(font, "BOSS")
+                    font.draw(
+                        batch, 
+                        "BOSS", 
+                        Gdx.graphics.width / 2f - layout.width / 2f,
+                        Gdx.graphics.height - 15f
+                    )
+                }
+            } else if (bossAnnounced) {
+                // Draw boss warning message
+                font.getData().setScale(2f)
+                font.setColor(1f, 0f, 0f, 1f)  // Red text
+
+                val warningText = "WARNING: BOSS APPROACHING!"
+                layout.setText(font, warningText)
+                font.draw(
+                    batch, 
+                    warningText, 
+                    Gdx.graphics.width / 2f - layout.width / 2f,
+                    Gdx.graphics.height / 2f + 50f
+                )
+
+                font.getData().setScale(1.5f)
+                val subText = "Prepare yourself..."
+                layout.setText(font, subText)
+                font.draw(
+                    batch, 
+                    subText, 
+                    Gdx.graphics.width / 2f - layout.width / 2f,
+                    Gdx.graphics.height / 2f - 20f
+                )
+            }
+
+            font.getData().setScale(1f)  // Reset font scale
+            font.setColor(Color.WHITE)  // Reset color
+        }
 
         // Render debug metrics if visible
         if (debugMetrics.isVisible()) {
