@@ -18,6 +18,10 @@ open class Player(
         const val SIZE = 32f
     }
 
+    // Network-related properties
+    var networkId: Int = -1
+    var isRemotePlayer: Boolean = false
+
     open val position = Vector2(
         initialX ?: worldWidth / 2,
         initialY ?: worldHeight / 2
@@ -79,7 +83,11 @@ open class Player(
     }
 
     fun update(delta: Float, enemies: List<BaseEnemy>) {
-        handleInput(delta)
+        // Only handle input for local players
+        if (!isRemotePlayer) {
+            handleInput(delta)
+        }
+
         weapon.update(delta, enemies)
 
         // Update dash cooldown
@@ -122,6 +130,38 @@ open class Player(
 
         updateBounds()
     }
+
+    /**
+     * Updates the player's state from a network message.
+     * This is used for remote players to synchronize their state with the server.
+     */
+    fun updateFromNetwork(
+        posX: Float,
+        posY: Float,
+        dirX: Float,
+        dirY: Float,
+        playerHealth: Int,
+        playerSpeed: Float,
+        playerIsDashing: Boolean,
+        playerIsAutoTargeting: Boolean
+    ) {
+        if (!isRemotePlayer) return // Only update remote players
+
+        position.set(posX, posY)
+        direction.set(dirX, dirY)
+        health = playerHealth
+        speed = playerSpeed
+        isDashing = playerIsDashing
+        isAutoTargeting = playerIsAutoTargeting
+
+        updateBounds()
+    }
+
+    /**
+     * Returns whether the player is currently dashing.
+     * This is used for network synchronization.
+     */
+    fun isDashing(): Boolean = isDashing
 
     private fun handleInput(delta: Float) {
         // Get movement direction

@@ -16,16 +16,33 @@ class MainMenuScreen private constructor(
     private val shapeRenderer: ShapeRenderer
 ) : Screen {
     private val titleText = "Vampire Survivors Clone"
-    private val playText = "Press SPACE to Play"
+    private val singlePlayerText = "1. Single Player"
+    private val multiplayerText = "2. Multiplayer"
+    private val instructionText = "Press 1 or 2 to select"
 
-    // For testing
+    // For testing and screen transitions
     internal var hubWorldScreenFactory: (VampireSurvivorsGame) -> HubWorldScreen = { game ->
         HubWorldScreen.create(game)
     }
 
+    internal var networkScreenFactory: (VampireSurvivorsGame) -> org.example.network.NetworkScreen = { game ->
+        org.example.network.NetworkScreen.create(game)
+    }
+
     fun handleInput(key: Int) {
         when (key) {
+            com.badlogic.gdx.Input.Keys.NUM_1 -> {
+                // Single player mode
+                game.setScreen(hubWorldScreenFactory(game))
+                dispose()
+            }
+            com.badlogic.gdx.Input.Keys.NUM_2 -> {
+                // Multiplayer mode
+                game.setScreen(networkScreenFactory(game))
+                dispose()
+            }
             com.badlogic.gdx.Input.Keys.SPACE -> {
+                // For backward compatibility, SPACE defaults to single player
                 game.setScreen(hubWorldScreenFactory(game))
                 dispose()
             }
@@ -59,6 +76,14 @@ class MainMenuScreen private constructor(
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
 
         // Handle input
+        if (Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.NUM_1)) {
+            handleInput(com.badlogic.gdx.Input.Keys.NUM_1)
+            return
+        }
+        if (Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.NUM_2)) {
+            handleInput(com.badlogic.gdx.Input.Keys.NUM_2)
+            return
+        }
         if (Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.SPACE)) {
             handleInput(com.badlogic.gdx.Input.Keys.SPACE)
             return
@@ -87,12 +112,27 @@ class MainMenuScreen private constructor(
             (Gdx.graphics.width - layout.width) / 2,
             Gdx.graphics.height * 0.7f)
 
-        // Draw play text
+        // Draw menu options
         font.getData().setScale(1.5f)
-        layout.setText(font, playText)
-        font.draw(game.getBatch(), playText,
+
+        // Single player option
+        layout.setText(font, singlePlayerText)
+        font.draw(game.getBatch(), singlePlayerText,
+            (Gdx.graphics.width - layout.width) / 2,
+            Gdx.graphics.height * 0.5f)
+
+        // Multiplayer option
+        layout.setText(font, multiplayerText)
+        font.draw(game.getBatch(), multiplayerText,
             (Gdx.graphics.width - layout.width) / 2,
             Gdx.graphics.height * 0.4f)
+
+        // Instructions
+        font.getData().setScale(1.2f)
+        layout.setText(font, instructionText)
+        font.draw(game.getBatch(), instructionText,
+            (Gdx.graphics.width - layout.width) / 2,
+            Gdx.graphics.height * 0.3f)
 
         font.getData().setScale(1f)  // Reset font scale
         game.getBatch().end()

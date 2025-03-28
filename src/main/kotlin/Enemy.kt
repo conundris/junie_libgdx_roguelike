@@ -19,6 +19,9 @@ abstract class BaseEnemy(startX: Float, startY: Float) {
     var damage = 10
     var expValue = 20  // Experience points dropped when killed
 
+    // Network-related properties
+    var networkId: Int = -1
+
     init {
         updateBounds()
     }
@@ -51,6 +54,22 @@ abstract class BaseEnemy(startX: Float, startY: Float) {
 
     open fun overlaps(player: Player): Boolean {
         return bounds.overlaps(player.bounds)
+    }
+
+    /**
+     * Updates the enemy's state from a network message.
+     * This is used to synchronize the enemy state between clients.
+     */
+    open fun updateFromNetwork(
+        posX: Float,
+        posY: Float,
+        enemyHealth: Int,
+        enemySpeed: Float
+    ) {
+        position.set(posX, posY)
+        health = enemyHealth
+        speed = enemySpeed
+        updateBounds()
     }
 }
 

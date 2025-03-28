@@ -17,6 +17,13 @@ class GameScreen private constructor(
     private val difficulty: DifficultyLevel = DifficultyLevel.NORMAL,
     private val mapType: MapType = MapType.FOREST
 ) : Screen {
+    // Network-related properties
+    private var networkManager: org.example.network.NetworkManager? = null
+    private var gameServer: org.example.network.GameServer? = null
+    private var gameClient: org.example.network.GameClient? = null
+    private val remotePlayers = mutableMapOf<Int, Player>()
+    private var isNetworkGame = false
+    private var isServer = false
     internal lateinit var player: Player
     internal val enemies = mutableListOf<BaseEnemy>()  // Changed to BaseEnemy to support all enemy types
     internal val powerUps = mutableListOf<PowerUp>()
@@ -360,6 +367,16 @@ class GameScreen private constructor(
             player.update(delta, enemies)
             player.weapon.checkCollisions(enemies)
 
+            // Update remote players
+            remotePlayers.values.forEach { remotePlayer ->
+                remotePlayer.update(delta, enemies)
+            }
+
+            // Send player state to server if in network game
+            if (isNetworkGame) {
+                sendPlayerState()
+            }
+
             // Update camera to follow player
             camera.position.x = player.position.x.coerceIn(VIEWPORT_WIDTH / 2, WORLD_WIDTH - VIEWPORT_WIDTH / 2)
             camera.position.y = player.position.y.coerceIn(VIEWPORT_HEIGHT / 2, WORLD_HEIGHT - VIEWPORT_HEIGHT / 2)
@@ -389,7 +406,13 @@ class GameScreen private constructor(
         // Render game objects
         enemies.forEach { it.render(shapeRenderer) }  // Render enemies first
         powerUps.forEach { it.render(shapeRenderer) }  // Render power-ups
-        player.render(shapeRenderer)  // Render player and weapon last
+
+        // Render remote players
+        remotePlayers.values.forEach { remotePlayer ->
+            remotePlayer.render(shapeRenderer)
+        }
+
+        player.render(shapeRenderer)  // Render local player and weapon last
 
         // Reset projection matrix for UI rendering
         game.getBatch().projectionMatrix.setToOrtho2D(0f, 0f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
@@ -498,5 +521,218 @@ class GameScreen private constructor(
     override fun dispose() {
         shapeRenderer.dispose()
         ui.dispose()
+
+        // Clean up network resources
+        networkManager?.removeMessageListener(createNetworkMessageListener())
+        gameServer?.stop()
+        gameClient?.stop()
+    }
+
+    /**
+     * Initializes this game as a network server.
+     * @param playerName The name of the local player
+     */
+    fun initAsServer(playerName: String) {
+        isNetworkGame = true
+        isServer = true
+
+        // Create network manager and start server
+        networkManager = org.example.network.NetworkManager().apply {
+            if (startServer(playerName)) {
+                addMessageListener(createNetworkMessageListener())
+
+                // Create game server
+                gameServer = org.example.network.GameServer(this, this@GameScreen, mapType, difficulty).apply {
+                    start()
+                }
+
+                // Set player network ID
+                player.networkId = getClientId()
+            } else {
+                Gdx.app.error("GameScreen", "Failed to start server")
+                isNetworkGame = false
+                isServer = false
+            }
+        }
+    }
+
+    /**
+     * Initializes this game as a network client.
+     * @param serverAddress The address of the server to connect to
+     * @param playerName The name of the local player
+     */
+    fun initAsClient(serverAddress: java.net.InetAddress, playerName: String) {
+        isNetworkGame = true
+        isServer = false
+
+        // Create network manager and connect to server
+        networkManager = org.example.network.NetworkManager().apply {
+            if (connectToServer(serverAddress, playerName)) {
+                addMessageListener(createNetworkMessageListener())
+
+                // Create game client
+                gameClient = org.example.network.GameClient(this, this@GameScreen).apply {
+                    start()
+                }
+
+                // Set player network ID
+                player.networkId = getClientId()
+            } else {
+                Gdx.app.error("GameScreen", "Failed to connect to server")
+                isNetworkGame = false
+            }
+        }
+    }
+
+    /**
+     * Creates a network message listener for handling network messages.
+     */
+    private fun createNetworkMessageListener(): org.example.network.NetworkMessageListener {
+        return object : org.example.network.NetworkMessageListener {
+            override fun onMessageReceived(message: org.example.network.NetworkMessage) {
+                when (message) {
+                    is org.example.network.PlayerStateMessage -> handlePlayerStateMessage(message)
+                    is org.example.network.EnemyStateMessage -> handleEnemyStateMessage(message)
+                    is org.example.network.GameStateMessage -> handleGameStateMessage(message)
+                    is org.example.network.SpawnMessage -> handleSpawnMessage(message)
+                    is org.example.network.DamageMessage -> handleDamageMessage(message)
+                    // Add more message handlers as needed
+                }
+            }
+        }
+    }
+
+    /**
+     * Handles a player state message from the network.
+     */
+    private fun handlePlayerStateMessage(message: org.example.network.PlayerStateMessage) {
+        val clientId = message.clientId
+
+        // Ignore messages about our own player
+        if (clientId == networkManager?.getClientId()) return
+
+        // Get or create remote player
+        val remotePlayer = remotePlayers.getOrPut(clientId) {
+            Player(WeaponType.SIMPLE).apply {
+                isRemotePlayer = true
+                networkId = clientId
+            }
+        }
+
+        // Update remote player state
+        remotePlayer.updateFromNetwork(
+            message.positionX,
+            message.positionY,
+            message.directionX,
+            message.directionY,
+            message.health,
+            message.speed,
+            false, // We don't have this info yet
+            message.isAutoTargeting
+        )
+    }
+
+    /**
+     * Handles an enemy state message from the network.
+     */
+    private fun handleEnemyStateMessage(message: org.example.network.EnemyStateMessage) {
+        // Find enemy by network ID
+        val enemy = enemies.find { it.networkId == message.enemyId }
+
+        if (enemy != null) {
+            // Update existing enemy
+            enemy.updateFromNetwork(
+                message.positionX,
+                message.positionY,
+                message.health,
+                0f // We don't have speed info yet
+            )
+        } else if (message.isAlive) {
+            // Enemy doesn't exist locally but is alive on server
+            // In a real implementation, we would create this enemy
+            Gdx.app.log("GameScreen", "Received state for unknown enemy: ${message.enemyId}")
+        }
+    }
+
+    /**
+     * Handles a game state message from the network.
+     */
+    private fun handleGameStateMessage(message: org.example.network.GameStateMessage) {
+        // Update game state
+        gameTime = message.gameTime
+        difficultyLevel = message.difficultyLevel
+        bossSpawned = message.bossSpawned
+        bossAnnounced = message.bossAnnounced
+    }
+
+    /**
+     * Handles a spawn message from the network.
+     */
+    private fun handleSpawnMessage(message: org.example.network.SpawnMessage) {
+        // Handle entity spawning
+        when (message.entityType) {
+            "enemy" -> {
+                // Spawn enemy based on type
+                val enemy = when (message.enemyType) {
+                    "BasicEnemy" -> BasicEnemy(message.positionX, message.positionY)
+                    "FastEnemy" -> FastEnemy(message.positionX, message.positionY)
+                    "TankEnemy" -> TankEnemy(message.positionX, message.positionY)
+                    "RangedEnemy" -> RangedEnemy(message.positionX, message.positionY)
+                    "BossEnemy" -> BossEnemy(message.positionX, message.positionY)
+                    else -> BasicEnemy(message.positionX, message.positionY)
+                }
+                enemy.networkId = message.entityId
+                enemies.add(enemy)
+            }
+            "powerup" -> {
+                // Spawn power-up based on type
+                val powerUpType = try {
+                    PowerUpType.valueOf(message.powerUpType)
+                } catch (e: IllegalArgumentException) {
+                    PowerUpType.HEALTH
+                }
+                powerUps.add(PowerUp(Vector2(message.positionX, message.positionY), powerUpType))
+            }
+        }
+    }
+
+    /**
+     * Handles a damage message from the network.
+     */
+    private fun handleDamageMessage(message: org.example.network.DamageMessage) {
+        // Apply damage based on target type
+        if (player.networkId == message.targetId) {
+            // Damage to local player
+            player.takeDamage(message.damage)
+        } else {
+            // Damage to enemy
+            val enemy = enemies.find { it.networkId == message.targetId }
+            enemy?.takeDamage(message.damage)
+        }
+    }
+
+    /**
+     * Sends the local player state to the server.
+     */
+    private fun sendPlayerState() {
+        if (!isNetworkGame) return
+
+        networkManager?.let { nm ->
+            val message = org.example.network.PlayerStateMessage().apply {
+                clientId = nm.getClientId()
+                positionX = player.position.x
+                positionY = player.position.y
+                directionX = player.direction.x
+                directionY = player.direction.y
+                health = player.health
+                speed = player.speed
+                isDashing = player.isDashing()
+                isAutoTargeting = player.isAutoTargeting
+                weaponType = player.weapon.getCurrentWeaponType()
+                experiencePoints = player.experience.currentExp
+                level = player.experience.level
+            }
+            nm.sendMessage(message)
+        }
     }
 }
