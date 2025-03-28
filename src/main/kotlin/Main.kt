@@ -26,7 +26,7 @@ class VampireSurvivorsGame : Game() {
         _font = BitmapFont()
         _shapeRenderer = ShapeRenderer()
         _layout = GlyphLayout()
-        setScreen(HubWorldScreen.create(this))
+        setScreen(MainMenuScreen.create(this))
     }
 
     override fun render() {

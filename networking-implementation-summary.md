@@ -40,6 +40,7 @@ The networking implementation follows a client-server architecture:
 - Updated MainMenuScreen to add multiplayer option
 
 ## Features
+- Choose at startup whether to host a game or join someone else's game
 - Host a game as a server
 - Join a game as a client
 - See and interact with other players in the game world
@@ -62,5 +63,27 @@ The networking implementation follows a client-server architecture:
 - Chat functionality
 - Host migration in case the server disconnects
 
+## Recent Changes
+The following changes were made to complete the network implementation and allow players to choose at startup whether to host a game or join someone else's game:
+
+1. **Game Initialization Flow**
+   - Modified `Main.kt` to start with `MainMenuScreen` instead of directly going to `HubWorldScreen`
+   - This change allows players to choose between single player and multiplayer at startup
+
+2. **NetworkScreen Implementation**
+   - Completed the `NetworkScreen` implementation to handle hosting and joining a game
+   - Added different screen states (main menu, host setup, join game, lobby)
+   - Implemented UI rendering for each screen state
+   - Added input handling for each screen state
+   - Integrated with `GameScreen` to start a networked game
+
+3. **User Flow**
+   - Player starts the game
+   - Player selects "Multiplayer" from the main menu
+   - Player chooses to either host a game or join a game
+   - If hosting, player configures game settings, starts the server, and waits for other players
+   - If joining, player searches for available games and joins one
+   - Game starts when the host is ready
+
 ## Conclusion
-The networking implementation provides a solid foundation for multiplayer gameplay in the Vampire Survivors Clone game. It enables players to play together in the same game world, see and interact with each other, and synchronize game state between clients.
+The networking implementation provides a solid foundation for multiplayer gameplay in the Vampire Survivors Clone game. It enables players to play together in the same game world, see and interact with each other, and synchronize game state between clients. With the recent changes, players can now choose at startup whether to host a game or join someone else's game, making the multiplayer experience more accessible and user-friendly.
